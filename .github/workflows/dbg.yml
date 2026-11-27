@@ -15,7 +15,9 @@ jobs:
           async def main():
             async with async_playwright() as p:
               b=await p.chromium.launch(channel="chrome")
-              pg=await b.new_page()
+              ctx=await b.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+              pg=await ctx.new_page()
+              pg.on("response",lambda r: print("RESP",r.status,r.url[:90],r.headers.get("access-control-allow-origin")) if "espn" in r.url else None)
               await pg.goto("https://vaultthegameneverstops.github.io/Vault/")
               await asyncio.sleep(3)
               for opt in ["{}","{cache:'no-store'}","{mode:'cors'}"]:
