@@ -22,7 +22,7 @@ jobs:
               pg=await b.new_page()
               pg.on("pageerror",lambda e: print("PAGEERR",e))
               pg.on("console",lambda m: print("C",m.text[:200]) if m.type in ("error","warning") else None)
-              await pg.add_init_script("window.__played=0;const op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){window.__played++;return op.call(this)}")
+              await pg.add_init_script("window.__played=0;window.__ended=0;window.__dur=0;window.__err=0;const op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){window.__played++;this.addEventListener('ended',()=>{window.__ended++;window.__dur+=this.duration||0});this.addEventListener('error',()=>{window.__err++});return op.call(this)}")
               await pg.goto("http://localhost:8000/#booth")
               await asyncio.sleep(5)
               tabs=await pg.eval_on_selector_all(".bth-chip","a=>a.map(x=>x.getAttribute('data-bp')+' '+x.querySelector('small').textContent)")
@@ -45,7 +45,7 @@ jobs:
                 if "on" in st or "unavailable" in st: break
               print("HD",st,"|",await pg.inner_text("#bpHDn"))
               await asyncio.sleep(60)
-              print("PLAYED",await pg.evaluate("window.__played"))
+              print("PLAYED",await pg.evaluate("[window.__played,window.__ended,Math.round(window.__dur),window.__err]"))
               await b.close()
           asyncio.run(main())
           PY
