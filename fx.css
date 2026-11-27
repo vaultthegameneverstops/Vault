@@ -532,3 +532,7 @@ html body .nav a.bth-nav i,#drawerNav a.bth-nav i{width:7px;height:7px;border-ra
 @keyframes camflash{0%,96%,100%{opacity:0}97%{opacity:1}}
 .ann-mini .ann-b,.ann-mini .eyes{animation:none}
 @media (prefers-reduced-motion:reduce){.bth-scene .flash{animation:none}}
+.bth-btn.hd[aria-pressed=true]{background:linear-gradient(135deg,#16a34a,#15803d);border-color:#4ade80;color:#fff}
+.bth-btn.hd:disabled{opacity:.85;cursor:progress}
+.bth-hdn{margin:-6px 0 12px;font:500 13px var(--sn-bd,system-ui);color:#8fa6c4}
+.bth-hdn:empty{display:none}

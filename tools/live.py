@@ -168,6 +168,10 @@ def main():
         e = P.setdefault(k, {"lg": lg, "a": a, "h": h, "an": r["an"], "hn": r["hn"], "plays": [], "fs": None})
         e.update({"as": r["as"], "hs": r["hs"], "st": r.get("st", "FINAL"), "id": g.get("id", e.get("id"))})
         e.update({mk: r[mk] for mk in META if r.get(mk)})
+        if g.get("rp") is not None:
+            e["rp"] = g["rp"]
+        if g.get("dr"):
+            e["dr"] = g["dr"]
         pl = e["plays"]
         keys = {x.get("key") for x in pl}
 

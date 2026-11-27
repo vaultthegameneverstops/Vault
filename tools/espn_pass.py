@@ -117,7 +117,35 @@ def football_extras(path, ev_id, a_id, h_id, a_ab, h_ab):
         }
     names = roster(box)
     hl = highlights(s, a_id, h_id, a_ab, h_ab, names, sline)
-    return scoring, (fs if len(fs) == 2 else None), hl
+    rp, dr = recent_football(s, a_id, h_id, a_ab, h_ab)
+    return scoring, (fs if len(fs) == 2 else None), hl, rp, dr
+
+
+def recent_football(s, a_id, h_id, a_ab, h_ab):
+    """Last 14 snaps (with down & distance) and the current drive, for the booth's play-by-play."""
+    drives = s.get("drives") or {}
+    dl = list(drives.get("previous") or [])
+    if drives.get("current"):
+        dl.append(drives["current"])
+    ab = {a_id: a_ab, h_id: h_ab}
+    out, seen = [], set()
+    for d in dl:
+        for p in d.get("plays") or []:
+            pid = str(p.get("id"))
+            if pid in seen:
+                continue
+            seen.add(pid)
+            st = p.get("start") or {}
+            off = str((st.get("team") or {}).get("id") or (d.get("team") or {}).get("id"))
+            out.append({"id": pid, "t": period_label((p.get("period") or {}).get("number")) + " " + ((p.get("clock") or {}).get("displayValue") or ""),
+                        "dd": st.get("downDistanceText") or "", "ty": ((p.get("type") or {}).get("text") or ""), "tx": clean(p.get("text"))[:260],
+                        "yd": num(p.get("statYardage")), "off": ab.get(off, ""), "sc": bool(p.get("scoringPlay")),
+                        "sa": num(p.get("awayScore")), "sh": num(p.get("homeScore"))})
+    cur = drives.get("current") or (dl[-1] if dl else None)
+    dr = None
+    if cur:
+        dr = {"tm": ab.get(str((cur.get("team") or {}).get("id")), ""), "d": cur.get("description") or "", "res": cur.get("displayResult") or ""}
+    return out[-14:], dr
 
 
 # ---------- highlight plays ----------
@@ -364,7 +392,13 @@ def hoops_extras(path, ev_id, key, a_id, h_id, a_ab, h_ab):
                 if m.group(4):
                     h["ast"] = m.group(4).strip()
         hl.append(h)
-    return shots[-90:], hl[-30:]
+    rp = []
+    for p in (s.get("plays") or [])[-16:]:
+        tid = str((p.get("team") or {}).get("id"))
+        rp.append({"id": str(p.get("id")), "t": hoops_period(p, key) + " " + ((p.get("clock") or {}).get("displayValue") or ""),
+                   "ty": ((p.get("type") or {}).get("text") or ""), "tx": (p.get("text") or "").strip()[:200], "tm": ab.get(tid, ""),
+                   "sc": bool(p.get("scoringPlay")), "v": num(p.get("scoreValue")), "sa": num(p.get("awayScore")), "sh": num(p.get("homeScore"))})
+    return shots[-90:], hl[-30:], rp
 
 
 def ufc_card():
@@ -421,7 +455,7 @@ def league(key, path, q):
         g.update(team_meta(home, "h"))
         if key in FOOTBALL and st in ("inprogress", "halftime", "closed"):
             try:
-                g["scoring"], fs, g["hl"] = football_extras(path, g["id"], str(ta.get("id")), str(th.get("id")), g["a"], g["h"])
+                g["scoring"], fs, g["hl"], g["rp"], g["dr"] = football_extras(path, g["id"], str(ta.get("id")), str(th.get("id")), g["a"], g["h"])
                 if fs:
                     g["fs"] = fs
             except Exception as e:
@@ -432,7 +466,7 @@ def league(key, path, q):
                 g["bs"] = bs
             if st in ("inprogress", "halftime") or (st == "closed" and recent_start(g["start"])):
                 try:
-                    g["sh"], g["hl"] = hoops_extras(path, g["id"], key, str(ta.get("id")), str(th.get("id")), g["a"], g["h"])
+                    g["sh"], g["hl"], g["rp"] = hoops_extras(path, g["id"], key, str(ta.get("id")), str(th.get("id")), g["a"], g["h"])
                 except Exception as e:
                     print("summary %s %s failed: %s" % (key, g["id"], e), file=sys.stderr)
         games.append(g)

@@ -578,6 +578,112 @@ function reveal(root){
 function flyIn(){if(RM||!AR)return;var t0=performance.now(),from={rx:84,rz:-150},to={rx:58,rz:-16},w=$("#arWorld");st.drag=true;
  (function step(now){var p=Math.min(1,(now-t0)/2400),e=1-Math.pow(1-p,4);st.rx=from.rx+(to.rx-from.rx)*e;st.rz=from.rz+(to.rz-from.rz)*e;if(w)w.style.setProperty("--fly",(0.55+0.45*e).toFixed(3));apply();if(p<1)requestAnimationFrame(step);else{st.drag=false;st.idle=performance.now();setTimeout(function(){AR.classList.add("settled")},1200)}})(t0)}
 
+/* ---------- Broadcast play-by-play: every snap / possession from e.rp, written like a TV booth ---------- */
+function lastName(raw){raw=String(raw||"").replace(/^#\d+\s+/,"").trim();var m=/^[A-Z][a-z]?\.\s?(.+)$/.exec(raw);var n=m?m[1]:raw.split(" ").slice(1).join(" ")||raw;return n.replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/,"").replace(/\.+$/,"")}
+var NM="(?:#\\d+\\s+)?([A-Z][a-zA-Z]?\\.\\s?[A-Za-z][A-Za-z'\\-\\.]*(?:\\s(?:Jr\\.|II|III|IV))?|[A-Z][a-z'\\-]+(?:\\s[A-Z][A-Za-z'\\-]+){1,2})";
+var RX={pass:new RegExp(NM+"\\s+pass(?:\\s+complete)?\\s*(short|deep)?\\s*(left|right|middle)?\\s*(?:to|intended for)\\s+"+NM),inc:new RegExp(NM+"\\s+pass\\s+incomplete\\s*(short|deep)?\\s*(left|right|middle)?(?:\\s+(?:to|intended for)\\s+"+NM+")?"),
+ rush:new RegExp(NM+"\\s+(?:rush|run|scrambles|up the middle|kneels|(left|right)\\s+(end|tackle|guard))"),sack:new RegExp(NM+"\\s+sacked.*?\\("+NM),sack0:new RegExp(NM+"\\s+sacked"),
+ to:/\bto\s+([A-Z]{2,5}\s?-?\d{1,2})\b/,intby:new RegExp("INTERCEPTED by\\s+"+NM,"i"),kick:new RegExp(NM+"\\s+(?:kicks|kickoff|punts)\\s+(\\d+)\\s+yards"),pen:/PENALTY on\s+([A-Z]{2,5})-?([^,]*),\s*([^,]+),\s*(\d+)\s+yards/i,fg:new RegExp(NM+"\\s+(\\d+)\\s+(?:yard|yd)\\s+(?:field goal|FG)","i")};
+function team(e,ab){return ab===e.a?nick(e.an):ab===e.h?nick(e.hn):ab}
+function other(e,ab){return ab===e.a?e.h:e.a}
+function spot(tx,e){var all=String(tx).match(/\bto\s+(?:the\s+)?([A-Z]{2,5})\s?(-?\d{1,2})\b/g);if(!all)return "";var m=/([A-Z]{2,5})\s?(-?\d{1,2})$/.exec(all[all.length-1]);if(!m)return "";var n=+m[2];return n===50?"50":(e?yl(e,m[1]):m[1])+" "+n}
+function yl(e,ab){return e&&(ab===e.a||ab===e.h)?team(e,ab):ab}
+var ORD={"1st":"First","2nd":"Second","3rd":"Third","4th":"Fourth"};
+function yds(n){n=Math.abs(n);return n===1?"a yard":n+" yards"}
+function ddSay(dd,e){dd=String(dd||"");var m=/^(1st|2nd|3rd|4th) & (\w+) at (.+)$/.exec(dd);if(!m)return "";var at=m[3].replace(/^([A-Z]+) (\d+)$/,function(_,a,n){return (+n===50?"midfield":"the "+yl(e,a)+" "+n)});return ORD[m[1]]+" and "+(m[2]==="Goal"?"goal":m[2])+" at "+at.replace(/^the midfield/,"midfield")+"."}
+function footballCall(e,p,k){
+ var out=[],R=function(t,h){out.push({w:"rex",t:t,h:!!h})},I=function(t){out.push({w:"ice",t:t})},tx=p.tx||"",ty=p.ty||"",O=team(e,p.off),D=team(e,other(e,p.off)),dd=ddSay(p.dd,e),sp=spot(tx,e),m;
+ var down=/^(3rd|4th)/.test(p.dd||""),first=/1ST DOWN/i.test(tx),S=scoreLine(e,p.sa,p.sh,p.off);
+ if(/Kickoff/.test(ty)){m=RX.kick.exec(tx);R((m?lastName(m[1])+" kicks it away":"Here's the kick")+"... "+(/Touchback/i.test(tx)?"through the end zone, touchback.":(sp?"returned out to the "+sp+".":"and it's returned.")))}
+ else if(/Punt/.test(ty)){m=RX.kick.exec(tx);R(dd+" "+(m?lastName(m[1])+" back to punt":"They'll punt it away")+"... "+(/Touchback/i.test(tx)?"into the end zone, touchback.":/fair catch/i.test(tx)?"fair catch called.":sp?"brought back to the "+sp+".":"and it's fielded."))}
+ else if(/Two-minute/i.test(ty)){R("And that'll bring us to the two-minute warning. "+S+".");I(pick(["Two minutes is an eternity in this league, "+CREW.rex.f+".","Clock management time. Let's see who handles it better."],k))}
+ else if(/Timeout/.test(ty)){m=/by\s+([A-Z]{2,5})/.exec(tx);R(m?"Timeout, "+team(e,m[1])+".":"We'll take a timeout here.")}
+ else if(/End (Period|of Half|Game)/i.test(ty)){R(/2/.test(tx)?"And that's halftime. "+S+".":"That'll do it for the quarter. "+S+".")}
+ else if(/Penalty/.test(ty)){m=RX.pen.exec(tx);R("Flag on the play."+(m?" "+m[3].replace(/^\w/,function(c){return c.toUpperCase()})+", "+team(e,m[1])+", "+m[4]+" yards"+(/No Play/i.test(tx)?", repeat the down.":"."):""));if(m)I(pick(["Can't do that. Self-inflicted wound.","That's a drive-killer if you're the "+team(e,m[1])+".","Discipline, "+CREW.rex.f+". You can't give away free yards."],k))}
+ else if(/Interception/.test(ty)){m=RX.pass.exec(tx)||RX.inc.exec(tx);var ib=RX.intby.exec(tx);R(dd+" "+(m?lastName(m[1])+" throws":"The pass")+"... PICKED OFF! "+(ib?lastName(ib[1])+" with the interception!":D+" take it away!"),1);I(pick(["Terrible decision. He never saw the safety rotate.","Huge momentum swing. The "+D+" defense was waiting on that one.","You cannot throw that ball, "+CREW.rex.f+". Not there."],k))}
+ else if(/Fumble/.test(ty)&&/Opponent/.test(ty)){R("FUMBLE! And the "+D+" recover!",1);I("Ball security! You just can't put it on the ground in a game like this.")}
+ else if(/Sack/.test(ty)){m=RX.sack.exec(tx)||RX.sack0.exec(tx);R(dd+" "+(m?lastName(m[1]):"The quarterback")+" back to throw... under pressure... SACKED"+(m&&m[2]?" by "+lastName(m[2]):"")+"! Loss of "+yds(p.yd)+".",1);if(down)I(pick(["Huge stop on "+String(p.dd).split(" ")[0]+" down. That's how you get off the field.","The pocket collapsed in a hurry. Nowhere to go."],k))}
+ else if(/Field Goal/.test(ty)){m=RX.fg.exec(tx);var good=/GOOD/i.test(tx)&&!/NO GOOD/i.test(tx);R((m?lastName(m[1])+" for "+m[2]:"The field goal try")+"... the kick is up... "+(good?"and it's GOOD!":"and it's NO GOOD!"),1);I(good?S+". "+pick(["Points are points.","They'll take the three."],k):pick(["Oh, that's a big miss. You have to make those.","Wide! Points left on the board."],k))}
+ else if(/Pass/.test(ty)){
+  if(/Incompletion|incomplete/i.test(ty+tx)){m=RX.inc.exec(tx);R(dd+" "+(m?lastName(m[1])+" drops back"+(m[3]?", looking "+m[3]:"")+"... throws"+(m[4]?" for "+lastName(m[4])+"...":"...")+" incomplete.":"Pass falls incomplete."));if(down)I(pick(["Big stop by the "+D+" defense.","Tight coverage. Nothing open there."],k))}
+  else{m=RX.pass.exec(tx);var td=/Touchdown/i.test(ty)||/TOUCHDOWN/.test(tx),big=p.yd>=20;
+   R(dd+" "+(m?lastName(m[1])+" drops back"+(m[2]==="deep"?", lets it fly deep"+(m[3]?" down the "+m[3]+" side":""):m[3]?", fires "+(m[2]||"")+" "+m[3]:"")+"... CAUGHT by "+lastName(m[4])+"! ":"Pass complete! ")+(td?"He's in! TOUCHDOWN "+O.toUpperCase()+"!":big?"What a play! Gain of "+p.yd+"!":(sp?"Brought down at the "+sp+". ":"")+(p.yd>0?"Gain of "+yds(p.yd)+".":"No gain."))+(first&&!td?" First down, "+O+".":""),td||big);
+   if(td)I(S+". "+pick(["Perfect throw, perfect route. Put it in the time capsule.","That's why he gets paid, "+CREW.rex.f+".","The defense blew the coverage and he made them pay."],k));else if(big)I(pick(["Look at the separation! He ran right by the corner.","That's the shot play, and it worked to perfection.","Huge chunk. That flips the field."],k));else if(down&&first)I(pick(["Big conversion. Keeps the drive alive.","Moved the chains on "+String(p.dd).split(" ")[0]+" down. Clutch."],k))}}
+ else if(/Rush/.test(ty)){m=RX.rush.exec(tx);var td2=/Touchdown/i.test(ty)||/TOUCHDOWN/.test(tx);
+  R(dd+" "+(m?"Handoff to "+lastName(m[1])+(m[2]?", "+m[2]+" side":"")+"...":"Run play...")+" "+(td2?"he's IN! TOUCHDOWN "+O.toUpperCase()+"!":p.yd>=15?"he breaks free! "+p.yd+" yards!":p.yd>0?"picks up "+yds(p.yd)+".":p.yd===0?"stopped for no gain.":"dropped for a loss of "+yds(p.yd)+".")+(first&&!td2?" First down.":""),td2||p.yd>=15);
+  if(td2)I(S+". "+pick(["The offensive line just moved people.","Power football. They wanted it more.","Nobody laid a finger on him, "+CREW.rex.f+"."],k));else if(p.yd>=15)I(pick(["Huge hole on that side. Somebody missed an assignment.","Great vision, and he hit it full speed."],k));else if(down&&p.yd<=0)I("Stuffed! What a stand by the "+D+" defense.")}
+ else if(tx)R(cleanDesc(tx));
+ return out}
+function hoopsCall(e,p,k){
+ var out=[],R=function(t,h){out.push({w:"rex",t:t,h:!!h})},I=function(t){out.push({w:"ice",t:t})},tx=p.tx||"",ty=p.ty||"",T=team(e,p.tm),m=/^(.+?)\s+(makes|misses|blocks|Steal|Block|Defensive|Offensive|Turnover|Lost Ball|Bad Pass|Traveling)/.exec(tx)||/^Foul on\s+(.+?)\.?$/.exec(tx),who=m?lastName(m[1]):T,ft=/(\d+)-foot/.exec(tx),ast=/\((.+?) assists?\)/.exec(tx),S=scoreLine(e,p.sa,p.sh,p.tm);
+ if(/Substitution|TVTimeOut|OfficialTV/.test(ty))return out;
+ if(/FreeThrow/.test(ty)||/free throw/i.test(tx)){if(/1 of 2|1 of 3/.test(tx))R(who+" at the line... "+(/makes/.test(tx)?"first one is good.":"first one is off."));else R(/makes/.test(tx)?who+" knocks it down. "+S+".":who+" misses the free throw.");return out}
+ if(/Dunk/.test(ty)||/dunk/i.test(tx)){if(/makes/.test(tx)){R(pick(["OH! ","SLAM! ","Look out! "],k)+who+" throws it DOWN!"+(ast?" Lob from "+lastName(ast[1])+"!":""),1);I(pick(["Posterized! That's going on every highlight show tonight.","Pure power at the rim.","You felt that one in the upper deck, "+CREW.rex.f+"."],k))}else R(who+" goes up for the slam... and it rattles out!");return out}
+ if(/Block/.test(ty)){R("REJECTED! "+who+" with the block!",1);I("He's protecting the rim like it's his house, "+CREW.rex.f+".");return out}
+ if(/Jump|LayUp|Shot/.test(ty)){var three=/three point/i.test(tx);
+  if(/makes/.test(tx)){R(three?who+(ft?" from "+ft[1]+"...":" for three...")+" BANG!"+(ast?" "+lastName(ast[1])+" with the assist.":""):/layup/i.test(tx)?who+" to the rim... lays it in."+(ast?" Nice feed by "+lastName(ast[1])+".":""):who+" pulls up... good.",three);if(three&&Math.abs((p.sa||0)-(p.sh||0))<=6)I(S+". "+pick(["He's feeling it now.","Huge shot. Momentum's swinging.","Nothing but the bottom of the net."],k))}
+  else R(three?who+" for three... no good.":/layup/i.test(tx)?who+" drives... can't finish.":who+" with the jumper... off the mark.");return out}
+ if(/Rebound/.test(ty)){R((/Offensive/.test(ty)?"Offensive board, ":"Rebound, ")+who+".");return out}
+ if(/Block/.test(ty)){R("REJECTED! "+who+" with the block!",1);I("He's protecting the rim like it's his house, "+CREW.rex.f+".");return out}
+ if(/Steal/.test(ty)){R("Picked clean by "+who+"!",1);return out}
+ if(/Turnover/.test(ty)){R("Turnover, "+T+".");return out}
+ if(/Foul/.test(ty)){R("Whistle. Foul"+(m?" on "+who:"")+".");return out}
+ if(/Timeout/i.test(ty)){R("Timeout on the floor. "+S+".");I(pick(["Good time to stop the bleeding.","Coach needs to settle them down."],k));return out}
+ if(/End|Period|Half/.test(ty)){R("That'll end the period. "+S+".");return out}
+ if(tx)R(cleanDesc(tx));
+ return out}
+function snapLines(e,g){
+ var rp=e.rp||[],out=[],fb=football(g||e),n=0;
+ rp.forEach(function(p){var cs=fb?footballCall(e,p,p.id):hoopsCall(e,p,p.id);cs=chat(cs,p.id);cs.forEach(function(c,i){c.when=p.t||"";c.key="rp|"+p.id+"|"+i;out.push(c)});
+  if(cs.length&&++n%5===0){banter(e,g,hsh(p.id)%7+n).forEach(function(l,i){l.key="rpb|"+p.id+"|"+i;out.push(l)})}});
+ return out}
+
+/* ---------- HD broadcast voices: Kokoro neural TTS running in the visitor's browser (free, no server) ---------- */
+var KV={"Rex Calloway":"am_michael","Dante “Ice” Whitfield":"am_onyx","Marcus Bell":"am_fenrir","Tony “Coach” Reyes":"bm_george","Lena Ortiz":"af_heart","“Big” Earl Jackson":"am_echo","Jim Halvorsen":"am_eric","Keisha Monroe":"af_nicole",
+ "Sam “Sparky” Delgado":"am_puck","Ray Booker":"bm_lewis","Nina Park":"af_bella","Doug “Tank” Brennan":"am_adam","Cole Whitaker":"am_liam","Andre Simms":"bm_daniel","Priya Desai":"af_sarah","Mike Kowalski":"bm_fable"};
+var KF=["af_jessica","af_kore","af_nova","af_river","af_sky","af_aoede","af_alloy","bf_emma","bf_isabella","bf_alice","bf_lily"],KM=["am_michael","am_onyx","am_fenrir","am_eric","am_puck","am_adam","am_liam","am_echo","bm_george","bm_lewis","bm_daniel","bm_fable"];
+function kvoice(p,partner){var v=KV[p.n];if(v)return v;var pool=p.v&&p.v.g==="f"?KF:KM,i=hsh(p.n)%pool.length;v=pool[i];if(partner&&kvoice(partner)===v)v=pool[(i+1)%pool.length];return v}
+var HD={st:"off",w:null,n:0,cb:{},cache:{},dev:"",pct:0};
+var HD_SRC='import{KokoroTTS}from"https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm";let t;self.onmessage=async e=>{const m=e.data;'+
+ 'if(m.type==="load"){for(const o of m.opts){try{t=await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:o.dtype,device:o.device,progress_callback:p=>{if(p.status==="progress"&&/onnx/.test(p.file||""))self.postMessage({type:"progress",p:p.progress})}});self.postMessage({type:"ready",dev:o.device});return}catch(err){self.postMessage({type:"warn",msg:String(err)})}}self.postMessage({type:"error"});return}'+
+ 'if(m.type==="gen"){try{const a=await t.generate(m.text,{voice:m.voice,speed:m.speed||1});self.postMessage({type:"audio",id:m.id,blob:a.toBlob(),secs:a.audio.length/a.sampling_rate})}catch(err){self.postMessage({type:"fail",id:m.id})}}};';
+function hdSupported(){return typeof Worker!=="undefined"&&typeof WebAssembly!=="undefined"}
+function hdLoad(){
+ if(HD.st==="loading"||HD.st==="ready"||!hdSupported())return;HD.st="loading";HD.pct=0;hdUI();
+ var mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+ var go=function(opt,fallback){
+  if(HD.w)try{HD.w.terminate()}catch(_){}
+  try{HD.w=new Worker(URL.createObjectURL(new Blob([HD_SRC],{type:"text/javascript"})),{type:"module"})}catch(_){HD.st="error";hdUI();return}
+  HD.w.onmessage=function(ev){var m=ev.data;
+   if(m.type==="progress"){HD.pct=Math.max(HD.pct,Math.round(m.p||0));hdUI()}
+   else if(m.type==="ready"){HD.st="ready";HD.dev=m.dev;hdUI();if(bpSound&&bpPlaying)hdPrefetch()}
+   else if(m.type==="warn"){if(window.console)console.warn("VAULT HD voices:",m.msg)}
+   else if(m.type==="error"){if(fallback){HD.pct=0;go(fallback,null)}else{HD.st="error";hdUI()}}
+   else if(m.type==="audio"||m.type==="fail"){var c=HD.cb[m.id];delete HD.cb[m.id];if(c)c(m.type==="audio"?URL.createObjectURL(m.blob):null)}};
+  HD.w.onerror=function(ev){if(window.console)console.warn("VAULT HD worker error:",ev&&ev.message);if(fallback){go(fallback,null)}else{HD.st="error";hdUI()}};
+  HD.w.postMessage({type:"load",opts:[opt]})};
+ var wasm={device:"wasm",dtype:"q8"};
+ if(navigator.gpu&&!mobile&&navigator.gpu.requestAdapter){navigator.gpu.requestAdapter().then(function(a){if(a)go({device:"webgpu",dtype:"fp32"},wasm);else go(wasm,null)}).catch(function(){go(wasm,null)})}
+ else go(wasm,null)}
+function hdLine(l){
+ var p=CREW[l.w],other=CREW[l.w==="rex"?"ice":"rex"],key=(l.key||l.t)+"|"+p.n;if(HD.cache[key])return HD.cache[key];
+ var speed=(l.w==="rex"?1.08:0.98)*(l.h?1.06:1);
+ return HD.cache[key]=new Promise(function(res){var id=++HD.n;HD.cb[id]=res;HD.w.postMessage({type:"gen",id:id,text:l.t.replace(/[“”]/g,'"'),voice:kvoice(p,other),speed:speed})})}
+function hdPrefetch(){if(HD.st!=="ready")return;for(var i=bpI;i<Math.min(bpQ.length,bpI+3);i++)hdLine(bpQ[i])}
+function hdUI(){var b=$("#bpHD");if(!b)return;var t=b.querySelector("span");
+ b.setAttribute("aria-pressed",HD.st==="ready");b.disabled=HD.st==="loading";
+ t.textContent=HD.st==="loading"?"Loading voices "+HD.pct+"%":HD.st==="ready"?"HD voices on":HD.st==="error"?"HD voices unavailable":"HD voices";
+ var n=$("#bpHDn");if(n)n.textContent=HD.st==="off"?"Real neural voices, a different one for every announcer. One-time download of about 90 MB, runs on your device.":HD.st==="loading"?"Downloading the voice model (one time). The booth keeps talking with device voices meanwhile.":HD.st==="ready"?(HD.dev==="webgpu"?"Neural voices running on your graphics chip.":"Neural voices running on your device. Slower phones may pause between lines."):HD.st==="error"?"This browser can't run the neural voices, so the booth uses your device's voices.":""}
+/* stadium crowd bed under the call */
+var AMB=null;
+function ambience(on){try{
+ if(on&&!AMB){var C=window.AudioContext||window.webkitAudioContext;if(!C)return;var ctx=new C(),len=ctx.sampleRate*4,buf=ctx.createBuffer(2,len,ctx.sampleRate);
+  for(var ch=0;ch<2;ch++){var d=buf.getChannelData(ch),last=0;for(var i=0;i<len;i++){var w=Math.random()*2-1;last=(last+.02*w)/1.02;d[i]=last*3.2}}
+  var src=ctx.createBufferSource();src.buffer=buf;src.loop=true;var f=ctx.createBiquadFilter();f.type="bandpass";f.frequency.value=700;f.Q.value=.6;var g=ctx.createGain();g.gain.value=.05;src.connect(f);f.connect(g);g.connect(ctx.destination);src.start();AMB={ctx:ctx,g:g}}
+ else if(!on&&AMB){AMB.ctx.close();AMB=null}}catch(_){}}
+function swell(){if(!AMB)return;var t=AMB.ctx.currentTime;AMB.g.gain.cancelScheduledValues(t);AMB.g.gain.setValueAtTime(.05,t);AMB.g.gain.linearRampToValueAtTime(.16,t+.4);AMB.g.gain.linearRampToValueAtTime(.05,t+3.5)}
+var bpAudio=null;
+
 /* ---------- THE BOOTH page (#booth): see and hear Rex & Dante ---------- */
 var BP=null,bpSel=null,bpQ=[],bpI=0,bpT=null,bpSound=false,bpPlaying=true,bpVoices=null,bpSeenKeys={};
 function rnd(seed){var s=seed;return function(){s=s*16807%2147483647;return (s-1)/2147483646}}
@@ -658,23 +764,25 @@ function bpEntry(g){var id=gid(g),e=PL&&PL.games&&PL.games[id];return e||{lg:g.l
 function chat(cs,k){
  if(cs.length>=2&&cs[0].w==="rex"&&cs[1].w==="ice"){var pre=pick(["",CREW.rex.f+", ","","You know, "+CREW.rex.f+", "],k+"p");if(pre)cs[1].t=pre+cs[1].t.charAt(0).toLowerCase()+cs[1].t.slice(1);
   var back=pick(["","Couldn't agree more, "+CREW.ice.f+".","","Great point, "+CREW.ice.f+".","Ha! Tell 'em, "+CREW.ice.f+".",""],k+"b");if(back)cs.push({w:"rex",t:back})}
- else if(cs.length===1&&cs[0].w==="rex"){var q=pick(["","What do you make of that, "+CREW.ice.f+"?",""],k+"q");if(q){cs[0].t+=" "+q;cs.push({w:"ice",t:pick(["It's all about execution right now.","Momentum is a real thing, and you can feel it.","Somebody has to answer, and soon."],k+"a")})}}
+ else if(cs.length===1&&cs[0].w==="rex"&&cs[0].h){var q=pick(["","What do you make of that, "+CREW.ice.f+"?","","How about that, "+CREW.ice.f+"?"],k+"q");if(q){cs[0].t+=" "+q;cs.push({w:"ice",t:pick(["That's a game-changer right there.","Momentum is a real thing, and you can feel it in this building.","Somebody on the other side has to answer, and soon.","That's the kind of play that wins you a game in November."],k+"a")})}}
  return cs}
-function bpLines(g){var e=bpEntry(g);setCrew(gid(g));var out=intro(e,g).map(function(l,i){l.key="intro|"+i;return l});(e.plays||[]).slice(-6).forEach(function(x){chat(calls(e,x),x.key||x.x).forEach(function(c,i){c.when=x.t||"";c.key=(x.key||x.x)+"|"+i;out.push(c)})});
+function bpLines(g){var e=bpEntry(g);setCrew(gid(g));var out=intro(e,g).map(function(l,i){l.key="intro|"+i;return l});
+ if(e.rp&&e.rp.length){return out.concat(snapLines(e,g))}(e.plays||[]).slice(-6).forEach(function(x){chat(calls(e,x),x.key||x.x).forEach(function(c,i){c.when=x.t||"";c.key=(x.key||x.x)+"|"+i;out.push(c)})});
  if(!(e.plays||[]).length)out.push({w:"rex",t:"We'll call every scoring play, turnover and big gain right here as it happens. Stay with us.",key:"wait"});return out}
 function buildBooth(){
  BP=document.createElement("section");BP.id="boothPage";BP.className="bth";BP.hidden=true;BP.setAttribute("aria-label","The VAULT Booth");
  BP.innerHTML='<div class="bth-in"><header class="bth-h"><p class="bth-k"><i></i>Live from the VAULT Booth</p><h1 class="bth-t">The Booth.</h1><p class="bth-s">Every game gets its own booth. Pick a game and pull up a chair: its crew calls every play VAULT tracks, live, and only that game.</p></header>'+
-  '<div class="bth-bar"><div class="bth-games" id="bpGames" role="tablist" aria-label="Booths: pick a game"></div><div class="bth-ctl"><button type="button" class="bth-btn pri" id="bpSound" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="w" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Listen live</span></button><button type="button" class="bth-btn" id="bpPlay" aria-pressed="true">Pause</button></div></div>'+
-  '<div class="bth-stage"><div class="bth-scene" id="bpScene">'+boothSVG()+'</div><div class="bth-cap" id="bpCap" aria-live="polite"><div class="bth-who" id="bpWho"></div><p id="bpSay"></p></div></div>'+
+  '<div class="bth-bar"><div class="bth-games" id="bpGames" role="tablist" aria-label="Booths: pick a game"></div><div class="bth-ctl"><button type="button" class="bth-btn hd" id="bpHD" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>HD voices</span></button><button type="button" class="bth-btn pri" id="bpSound" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="w" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Listen live</span></button><button type="button" class="bth-btn" id="bpPlay" aria-pressed="true">Pause</button></div></div>'+
+  '<p class="bth-hdn" id="bpHDn"></p><div class="bth-stage"><div class="bth-scene" id="bpScene">'+boothSVG()+'</div><div class="bth-cap" id="bpCap" aria-live="polite"><div class="bth-who" id="bpWho"></div><p id="bpSay"></p></div></div>'+
   '<div class="bth-cols"><section class="bth-crew" id="bpCrew"></section>'+
   '<section class="bth-tr"><h2>The call so far</h2><ol class="bo-lines" id="bpTr"></ol></section></div></div>';
  var view=$("#view");view.parentNode.insertBefore(BP,view.nextSibling);
  BP.addEventListener("click",function(e){
   var c=e.target.closest("[data-bp]");if(c){bpSel=c.getAttribute("data-bp");bpStart(true);return}
-  if(e.target.closest("#bpSound")){bpSound=!bpSound;var b=$("#bpSound");b.setAttribute("aria-pressed",bpSound);b.querySelector("span").textContent=bpSound?"Sound on":"Listen live";if(!bpSound&&window.speechSynthesis)speechSynthesis.cancel();else{bpPlaying=true;$("#bpPlay").textContent="Pause";bpStart(false)}return}
-  if(e.target.closest("#bpPlay")){bpPlaying=!bpPlaying;$("#bpPlay").textContent=bpPlaying?"Pause":"Play";$("#bpPlay").setAttribute("aria-pressed",bpPlaying);if(!bpPlaying){clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();talk(null)}else bpNext()}});
- if(!("speechSynthesis" in window))$("#bpSound").hidden=true;
+  if(e.target.closest("#bpHD")){if(HD.st==="off"||HD.st==="error"){HD.st="off";hdLoad()}if(!bpSound)$("#bpSound").click();return}
+  if(e.target.closest("#bpSound")){bpSound=!bpSound;ambience(bpSound);var b=$("#bpSound");b.setAttribute("aria-pressed",bpSound);b.querySelector("span").textContent=bpSound?"Sound on":"Listen live";if(!bpSound&&window.speechSynthesis)speechSynthesis.cancel();else{bpPlaying=true;$("#bpPlay").textContent="Pause";bpStart(false)}return}
+  if(e.target.closest("#bpPlay")){bpPlaying=!bpPlaying;$("#bpPlay").textContent=bpPlaying?"Pause":"Play";$("#bpPlay").setAttribute("aria-pressed",bpPlaying);if(!bpPlaying){clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpAudio)bpAudio.pause();talk(null)}else bpNext()}});
+ if(!("speechSynthesis" in window)&&!hdSupported())$("#bpSound").hidden=true;if(!hdSupported())$("#bpHD").hidden=true;hdUI();
 }
 function crewCards(g){var id=gid(g);setCrew(id);
  return '<h2>Tonight’s booth</h2><p class="bth-mu">'+esc(nm(g,"a"))+' at '+esc(nm(g,"h"))+'</p>'+
@@ -688,7 +796,7 @@ function bpCurGame(){var l=bpGames();var g=null;l.forEach(function(x){if(gid(x)=
 function bpChips(){assignCrews();var box=$("#bpGames"),sl=box.scrollLeft,l=bpGames();box.innerHTML=l.slice(0,16).map(function(g){var id=gid(g);return '<button type="button" role="tab" class="bth-chip'+(isLive(g)?" live":"")+'" data-bp="'+esc(id)+'" aria-selected="'+(id===bpSel)+'" aria-pressed="'+(id===bpSel)+'"><em>'+(isLive(g)?'<i></i>':"")+esc(g.lg)+" · "+esc(clock(g))+'</em><span class="bt-sc">'+logoImg(g.lg,g.a,"sm",40)+esc(g.a)+" "+esc(g.as)+'<s>·</s>'+logoImg(g.lg,g.h,"sm",40)+esc(g.h)+" "+esc(g.hs)+'</span><small>🎙 '+esc(crewNames(id))+'</small></button>'}).join("");box.scrollLeft=sl}
 function bpMon(g){if(!g)return;var t=$("#bsScore");if(t)t.textContent=g.a+" "+g.as+" – "+g.h+" "+g.hs;var c=$("#bsClock");if(c)c.textContent=clock(g);var a=$("#jbA"),h=$("#jbH");if(a)a.textContent=g.as;if(h)h.textContent=g.hs}
 function bpTranscript(g){var ls=bpLines(g).slice().reverse();$("#bpTr").innerHTML=ls.map(function(l){return lineHTML(l,false)}).join("")}
-function bpStart(fromStart){var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);bpQ=bpLines(g);bpI=fromStart||!bpSeenKeys[bpSel]?0:Math.max(0,bpQ.length-4);bpSeenKeys[bpSel]={};bpQ.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpPlaying)bpNext()}
+function bpStart(fromStart){var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);bpQ=bpLines(g);bpI=fromStart||!bpSeenKeys[bpSel]?0:Math.max(0,bpQ.length-4);bpSeenKeys[bpSel]={};bpQ.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpAudio)bpAudio.pause();if(bpPlaying)bpNext()}
 function talk(w){["annRex","annIce"].forEach(function(id){var el=document.getElementById(id);if(el){el.classList.toggle("talk",(w==="rex"&&id==="annRex")||(w==="ice"&&id==="annIce"));el.classList.toggle("look",!!w&&!((w==="rex"&&id==="annRex")||(w==="ice"&&id==="annIce")))}})}
 var FEM=/female|samantha|victoria|karen|moira|tessa|fiona|serena|susan|zira|aria|jenny|ava|allison|kate|martha|nicky|catherine|libby|sonia|michelle|emma|olivia|google uk english female|google us english/i,
  MAL=/male|daniel|alex|fred|guy|matthew|davis|aaron|arthur|tom|eric|ryan|christopher|rishi|lee|oliver|gordon|reed|rocko|ralph|evan|nathan|thomas|george|james|brian|roger|andrew|tony|google uk english male/i;
@@ -715,16 +823,18 @@ function bpNext(){
  var l=bpQ[bpI++],p=CREW[l.w];$("#bpWho").innerHTML='<b>'+esc(p.n)+'</b><span>'+esc(p.r)+(l.when?" · "+esc(l.when):"")+'</span>';
  var say=$("#bpSay");say.className=l.h?"hype":"";say.textContent="";var txt=l.t,k=0;talk(l.w);
  (function type(){if(k<=txt.length){say.textContent=txt.slice(0,k);k+=2;bpT=setTimeout(type,RM?0:22)}})();
- var done=function(){talk(null);bpT=setTimeout(bpNext,900)};
+ var done=function(){talk(null);bpT=setTimeout(bpNext,l.w==="rex"?450:700)};if(l.h&&bpSound)swell();
+ if(bpSound&&HD.st==="ready"){var cur=bpSel;hdPrefetch();hdLine(l).then(function(url){if(cur!==bpSel||!bpPlaying)return;if(!url){done();return}
+   if(bpAudio)bpAudio.pause();bpAudio=new Audio(url);bpAudio.onended=function(){clearTimeout(bpT);done()};bpAudio.onerror=function(){done()};var pr0=bpAudio.play();if(pr0&&pr0.catch)pr0.catch(function(){done()});hdPrefetch()});return}
  if(bpSound&&window.speechSynthesis){var u=new SpeechSynthesisUtterance(txt),vv=pickVoices();if(vv)u.voice=vv[l.w];var pv=CREW[l.w].v||{p:1,r:1};u.pitch=pv.p;u.rate=pv.r*(l.h?1.08:1);u.onend=function(){clearTimeout(bpT);done()};u.onerror=function(){clearTimeout(bpT);setTimeout(done,txt.length*55)};speechSynthesis.speak(u)}
  else setTimeout(function(){if(bpPlaying)done()},Math.max(2600,txt.length*58))}
-function bpRefresh(){if(!BP||BP.hidden)return;var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);var fresh=bpLines(g).filter(function(l){return !(bpSeenKeys[bpSel]||{})[l.key]});if(fresh.length){fresh.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});bpQ=bpLines(g);bpI=bpQ.length-fresh.length;if(bpPlaying){if(window.speechSynthesis)speechSynthesis.cancel();bpNext()}}}
+function bpRefresh(){if(!BP||BP.hidden)return;var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);var fresh=bpLines(g).filter(function(l){return !(bpSeenKeys[bpSel]||{})[l.key]});if(fresh.length){fresh.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});bpQ=bpLines(g);bpI=bpQ.length-fresh.length;}}
 function boothRoute(){
  var on=(location.hash||"").slice(1)==="booth";if(!BP)buildBooth();
  var view=$("#view");BP.hidden=!on;view.style.display=on?"none":"";if(AR&&on)AR.hidden=true;
  navLink();
  if(on){window.scrollTo(0,0);document.title="The Booth — VAULT";bpStart(false);var t=BP.querySelector(".bth-t");if(t){words(t);t.classList.remove("in");setTimeout(function(){t.classList.add("in")},80)}}
- else{clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel()}}
+ else{clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpAudio)bpAudio.pause();ambience(false);if(bpSound){bpSound=false;var sb=$("#bpSound");if(sb){sb.setAttribute("aria-pressed","false");sb.querySelector("span").textContent="Listen live"}}}}
 function navLink(){
  var on=(location.hash||"").slice(1)==="booth";
  ["#nav","#drawerNav"].forEach(function(sel){var n=$(sel);if(!n)return;var a=n.querySelector("a.bth-nav");
