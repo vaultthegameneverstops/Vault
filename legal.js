@@ -69,7 +69,7 @@ accessibility:function(){return Page("accessibility","Accessibility","VAULT aims
 credits:function(){return Page("credits","Credits &amp; licenses","Where VAULT's fonts, art and data come from",
   S("Fonts","<p>VAULT uses Inter and Inter Display by Rasmus Andersson, © The Inter Project Authors, under the SIL Open Font License 1.1. The fonts are free to use and ship with VAULT. License: <a href=\"https://openfontlicense.org\">openfontlicense.org</a>; project: <a href=\"https://rsms.me/inter/\">rsms.me/inter</a>.</p>")+
   S("Art and logos","<p>Story art, icons and the VAULT logo are drawn for VAULT in code.</p>")+
-  S("Data and stories","<p>Each story links its sources. Scores and player stats come from VAULT's data file, compiled from Sportradar data and the sources named on each page.</p>")+
+  S("Data and stories","<p>Each story links its sources. Scores and player stats come from VAULT's data file, compiled from Sportradar data, ESPN's public scoreboard (live scores) and the sources named on each page.</p>")+
   S("Third-party code",(ADS()?"<p>Google AdSense, loaded from pagead2.googlesyndication.com, to show ads. Nothing else: no other outside scripts, SDKs, analytics or social widgets.</p>":"<p>None. VAULT loads no outside scripts, SDKs, analytics, ads or social widgets. Everything it runs ships with the site.</p>")))}
 };
 var TITLES={about:"About",privacy:"Privacy policy",terms:"Terms of service",refunds:"Refund policy",cookies:"Cookies & storage","your-data":"Your data",accessibility:"Accessibility",credits:"Credits & licenses"};

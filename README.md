@@ -11,7 +11,9 @@ A static site: `index.html` plus plain JS, CSS and JSON data. No build step.
 - `social.js`: shared takes
 - `ads.js` / `ads.txt`: Google AdSense (off until configured, see below)
 - `data.json`, `scores.json`, `plays.json`, `performances.json`: the content feed
-- `tools/live.py.txt`: the script that merges live score passes into `scores.json` / `plays.json`
+- `tools/espn_pass.py`: fetches one pass of live scores from ESPN's public scoreboard
+- `tools/live.py`: merges a live pass into `scores.json` / `plays.json`
+- `.github/workflows/live-scores.yml`: runs both every 5 minutes, commits changes and deploys to GitHub Pages
 - `brand/`, `brand.html`, `fonts/`: logo, brand page and self-hosted Inter fonts
 
 ## Hosting
@@ -20,6 +22,13 @@ GitHub Pages on a private repo needs a paid GitHub plan; Cloudflare Pages and Ne
 
 Note: shared takes (`social.js`) use the claude.ai artifact storage, so posting takes only works on the claude.ai version.
 The privacy page also says VAULT is hosted on claude.ai; update that wording in `legal.js` if you move to your own domain.
+
+## Live scores (auto-update)
+The **Live scores** GitHub Action runs every 5 minutes (GitHub may delay scheduled runs by a few minutes when busy).
+It pulls NFL, college football, NBA and men's college basketball scores from ESPN's public scoreboard, merges them with `tools/live.py`,
+commits `scores.json` / `plays.json` only when something changed, and deploys the site.
+One-time setup: **Settings > Pages > Build and deployment > Source: GitHub Actions**. Run it by hand from the Actions tab with *Run workflow*.
+`data.json` (stories) is not touched by this job.
 
 ## Ads (Google AdSense)
 Ads are **off** until you add your publisher ID. They never run on the claude.ai preview, never appear on policy pages, and are labelled "Advertisement".

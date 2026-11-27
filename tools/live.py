@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""VAULT live merge. Reads /tmp/vault_live/pass.json (one pass of sports data, written by the live loop),
+"""VAULT live merge. Reads $VAULT_LIVE_DIR/pass.json (default /tmp/vault_live) (one pass of sports data, written by the live loop),
 merges it with the previous plays.json/scores.json in /tmp/vault_live, and writes fresh scores.json and plays.json.
 Prints one line: CHANGED or SAME, plus counts.
 
@@ -18,7 +18,8 @@ pass.json shape:
 """
 import json, os, re, datetime, sys
 
-D = "/tmp/vault_live"
+D = os.environ.get("VAULT_LIVE_DIR", "/tmp/vault_live")
+SRC = os.environ.get("VAULT_SRC", "Sportradar via VAULT data feed")
 LG = {"nfl": "NFL", "ncaafb": "CFB", "nba": "NBA", "ncaamb": "CBB"}
 FOOT = {"NFL", "CFB"}
 
@@ -121,7 +122,7 @@ def main():
         if r.get("lg") not in fetched and gid(r["lg"], r["a"], r["h"]) not in have:
             out.append((bool(r.get("st")), r, None))
     out.sort(key=lambda x: not x[0])
-    scores = {"updatedAt": now_iso(), "src": "Sportradar via VAULT data feed", "games": [r for _, r, _ in out]}
+    scores = {"updatedAt": now_iso(), "src": SRC, "games": [r for _, r, _ in out]}
 
     prev_by = {gid(r["lg"], r["a"], r["h"]): r for r in prev_scores.get("games", [])}
     for live, r, g in out:

@@ -96,7 +96,7 @@ function gamePage(){
  if(e&&e.bs){extra='<div class="pt-st">'+["a","h"].map(function(k){var b=e.bs[k];return b?'<div><b>'+esc(b.pts)+'</b>'+esc(b.ld)+' leads '+esc(e[k])+'</div>':""}).join("")+'</div>'}
  box.innerHTML='<div class="pt-h"><h2>Play tracker</h2>'+(lv?'<span class="pt-live"><i></i>Live</span>':"")+'<div class="pt-f" role="group" aria-label="Filter plays"><button type="button" data-pf="all" aria-pressed="'+(gpFilter==="all")+'">All plays</button><button type="button" data-pf="big" aria-pressed="'+(gpFilter==="big")+'">Big plays</button></div></div>'+extra+
   (shown.length?'<ol class="pls">'+shown.map(function(x){return plRow(g,x)}).join("")+'</ol>':'<p class="pt-e">'+(e?"No plays in this view yet.":"Plays show up here while VAULT is tracking this game live: scoring plays, turnovers, explosive gains and scoring runs.")+'</p>')+
-  '<p class="pt-n">Tracked from the Sportradar feed. Football: every scoring play, plus turnovers and new longest gains as the team stats change. Basketball: scoring runs between updates and leading scorers. Times for turnovers, gains and runs are when VAULT spotted them.</p>'}
+  '<p class="pt-n">Tracked from ESPN\u2019s public scoreboard, checked every 5 minutes. Football: every scoring play, plus turnovers and new longest gains as the team stats change. Basketball: scoring runs between updates and leading scorers. Times for turnovers, gains and runs are when VAULT spotted them.</p>'}
 
 /* ---------- Arena ---------- */
 var AR=null,sel=null,st={rx:58,rz:-16,drag:false,idle:0,t0:performance.now(),vis:true},seen={};

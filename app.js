@@ -320,7 +320,7 @@ function vGame(id){
   function row(name,ab,sc,win,rec){return '<div class="gm-t'+(win?" w":"")+'"><div><b>'+esc(name)+'</b><small>'+esc(ab)+(rec?'<em class="rec" aria-label="Record '+esc(rec)+'">'+esc(rec)+'</em>':'')+'</small></div><span>'+esc(sc)+'</span></div>'}
   return '<a class="back" href="#scores">← Scores</a><div class="grid"><article><div class="gm'+(live?" live":"")+'"><div class="gm-h"><span>'+esc(g.lg)+(g.note?" · "+esc(g.note):"")+'</span><b>'+(live?'<i class="dot"></i>':"")+esc(g.st||"FINAL")+'</b></div>'+
    row(an,g.a,g.as,!live&&aw,g.ar)+row(hn,g.h,g.hs,!live&&hw,g.hr)+'<div class="gm-f">'+esc(res)+'</div></div>'+
-   Recap(g)+'<p class="page-s">Score as of the last VAULT update'+(t?" ("+t+")":"")+'. Away team on top, home team on the bottom.'+(g.ar||g.hr?' Records are season win-loss records as of the last VAULT update.':'')+' Scores from Sportradar data.</p>'+
+   Recap(g)+'<p class="page-s">Score as of the last VAULT update'+(t?" ("+t+")":"")+'. Away team on top, home team on the bottom.'+(g.ar||g.hr?' Records are season win-loss records as of the last VAULT update.':'')+' Live scores from ESPN\u2019s public scoreboard; earlier scores from Sportradar data.</p>'+
    (rel.length?Section("Related stories","",'<div class="cards">'+rel.map(Card).join("")+'</div>'):"")+
    (more.length?Section("More "+esc(g.lg)+" scores","",ScoreGrid(more)):"")+'</article><div>'+Side()+'</div></div>'}
 /* ---------- router ---------- */
