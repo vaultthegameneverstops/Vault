@@ -40,7 +40,8 @@ Team logos and colors come from the ESPN scoreboard feed and appear on scores, t
 VAULT Writers (`#columns`): fictional writers file a column and quick takes on every game, live and final. Facts come from ESPN; the opinions are invented and labeled as takes.
 To turn logos off, set `LOGOS_ON=false` in `app.js`.
 Field pages (`#field-<game id>`): tap the stadium or "See the field bigger" to open the field full size. Drag to spin, scroll or +/− to zoom, and pick any big play to replay it.
-Win probability: each pass reads ESPN's live win probability (and ESPN's pregame projection for games starting within 30 hours) into `scores.json` → `wp`. It shows as a bar on score cards, game pages and the stadium panel, and as a full-game graph (each team's peak and the biggest swing marked) on game and field pages.
+Win probability: each pass reads ESPN's live win probability (and ESPN's pregame projection for every upcoming game on the scoreboard) into `scores.json` → `wp`. It shows as a bar on score cards, game pages and the stadium panel, and as a full-game graph (each team's peak and the biggest swing marked) on game and field pages. The **Win %** tab (`#win`) lists every game by league and Live / Upcoming / Final.
+Live booth: on the game you're watching (stadium, game page or field page) the site also reads ESPN's play-by-play every 15 seconds, so the announcers call touchdowns, turnovers, big gains, threes, dunks and blocks right away.
 
 
 ## Ads (Google AdSense)

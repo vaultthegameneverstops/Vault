@@ -133,6 +133,17 @@ def main():
             wp[gid(lg, g["a"], g["h"])] = {"h": g["wp"], "s": g.get("wps", "live"), "id": g.get("id"), "t": g.get("wpt", 0)}
             if g.get("wpl"):
                 wp[gid(lg, g["a"], g["h"])]["l"] = g["wpl"]
+            # team info so the Win % page can show games that are not on the scoreboard yet
+            w = wp[gid(lg, g["a"], g["h"])]
+            w["ab"] = [g["a"], g["h"]]  # "h" is the home win %, so abbreviations live here
+            for mk in ("an", "hn", "alg", "hlg", "ac", "hc", "ac2", "hc2", "ar", "hr", "start"):
+                if g.get(mk):
+                    w[mk] = g[mk]
+            if g.get("status") != "scheduled":
+                w["as"], w["hs"] = int(g.get("as") or 0), int(g.get("hs") or 0)
+                t = st_text(g, lg)
+                if t:
+                    w["st"] = t
         s = g.get("status", "")
         live = s in ("inprogress", "halftime")
         recent = False

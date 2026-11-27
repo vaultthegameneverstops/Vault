@@ -489,7 +489,7 @@ def ufc_card():
             "venue": (((ev.get("competitions") or [{}])[0].get("venue") or {}).get("fullName")), "bouts": bouts}
 
 
-PRE_HOURS = 30          # pregame projections for games starting within this many hours
+PRE_HOURS = 7 * 24      # pregame projections for every upcoming game on the scoreboard (NFL/CFB: this week, hoops: today)
 PRE_REFRESH = 3 * 3600  # re-ask ESPN for a pregame projection at most this often
 PREV_WP = {}
 
@@ -508,7 +508,7 @@ def league(key, path, q):
         st = status(ev)
         ta, th = away.get("team") or {}, home.get("team") or {}
         if st == "scheduled":
-            pre = pregame(key, path, ev, ta, th)
+            pre = pregame(key, path, ev, ta, th, away, home)
             if pre:
                 games.append(pre)
             continue
@@ -567,7 +567,7 @@ def live_wp(comp, g, h_id, st):
     return {"wp": v, "wps": "live"} if v is not None else {}
 
 
-def pregame(key, path, ev, ta, th):
+def pregame(key, path, ev, ta, th, away, home):
     """A scheduled game starting soon, with ESPN's pregame win projection (cached between passes)."""
     try:
         start = datetime.datetime.fromisoformat(ev.get("date", "").replace("Z", "+00:00"))
@@ -579,6 +579,8 @@ def pregame(key, path, ev, ta, th):
     g = {"lg": key, "id": str(ev.get("id")), "a": ta.get("abbreviation", "?"), "h": th.get("abbreviation", "?"),
          "an": ta.get("displayName", ""), "hn": th.get("displayName", ""), "as": 0, "hs": 0,
          "status": "scheduled", "start": ev.get("date", "")}
+    g.update(team_meta(away, "a"))
+    g.update(team_meta(home, "h"))
     old = PREV_WP.get(g["id"])
     if old and time.time() - old.get("t", 0) < PRE_REFRESH:
         g.update({"wp": old["h"], "wps": "pre", "wpt": old["t"]})
