@@ -203,7 +203,10 @@ def highlights(s, a_id, h_id, a_ab, h_ab, names, sline=None):
             if off not in ab:
                 continue
             dfn = h_id if off == a_id else a_id
-            td = "Touchdown" in ty or "TOUCHDOWN" in txt.upper()
+            up = txt.upper()
+            if "NULLIFIED" in up or "REVERSED" in up or "NO PLAY" in up:
+                continue
+            td = "Touchdown" in ty or (bool(p.get("scoringPlay")) and "TOUCHDOWN" in up)
             tov = bool(p.get("isTurnover")) or "Interception" in ty or ("Fumble" in ty and "Opponent" in ty)
             kind = None
             if tov:
