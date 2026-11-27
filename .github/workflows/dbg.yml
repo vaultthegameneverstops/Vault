@@ -8,19 +8,29 @@ jobs:
           python3 - <<'PY'
           import json,urllib.request
           def g(u): return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={"User-Agent":"Mozilla/5.0"})))
-          for path in ["football/nfl","football/college-football"]:
-            sb=g("https://site.api.espn.com/apis/site/v2/sports/"+path+"/scoreboard")
-            evs=[e for e in sb["events"] if e["status"]["type"]["state"]!="pre"]
-            print("PATH",path,[ (e["id"],e["shortName"],e["status"]["type"]["state"]) for e in sb["events"]][:20])
-            if not evs: continue
-            s=g("https://site.api.espn.com/apis/site/v2/sports/"+path+"/summary?event="+evs[0]["id"])
-            print("KEYS",list(s.keys()))
-            dr=s.get("drives",{})
-            print("DRIVEKEYS",list(dr.keys()))
-            d0=(dr.get("previous") or [dr.get("current")])[0]
-            print("DRIVE",json.dumps({k:v for k,v in d0.items() if k!="plays"})[:1500])
-            for p in d0["plays"][:4]: print("PLAY",json.dumps(p)[:1800])
+          B="https://site.api.espn.com/apis/site/v2/sports/"
+          for path,q in [("basketball/mens-college-basketball","?groups=50&limit=400"),("basketball/nba","")]:
+            sb=g(B+path+"/scoreboard"+q)
+            ev=[e for e in sb["events"] if e["status"]["type"]["state"]!="pre"]
+            print("PATH",path,len(sb["events"]),len(ev))
+            if not sb["events"]: continue
+            c=sb["events"][0]["competitions"][0]["competitors"][0]
+            print("TEAM",json.dumps({k:c["team"].get(k) for k in ("logo","color","alternateColor","abbreviation")}),json.dumps(c.get("records"))[:200])
+            if not ev: continue
+            s=g(B+path+"/summary?event="+ev[0]["id"])
+            print("SKEYS",list(s.keys()))
+            pl=s.get("plays") or []
+            print("NPLAYS",len(pl))
+            for p in [x for x in pl if x.get("shootingPlay")][-6:]: print("PLAY",json.dumps(p)[:900])
+            for p in [x for x in pl if "Block" in x.get("type",{}).get("text","") or "Steal" in x.get("type",{}).get("text","")][-2:]: print("PLAYO",json.dumps(p)[:600])
+            print("TYPES",sorted({x.get("type",{}).get("text") for x in pl})[:60])
             bp=s["boxscore"]["players"][0]["statistics"][0]
-            print("BOXP",json.dumps(bp)[:900])
-            print("SCP",json.dumps((s.get("scoringPlays") or [{}])[0])[:900])
+            print("BOXP",json.dumps({k:bp.get(k) for k in ("names","keys","labels")}),json.dumps(bp["athletes"][0])[:500])
+          for lg in ["ufc"]:
+            sb=g(B+"mma/"+lg+"/scoreboard")
+            print("MMA events",len(sb.get("events",[])))
+            for e in sb.get("events",[])[:1]:
+              print("MEV",json.dumps({k:e.get(k) for k in ("id","name","date","status")})[:600])
+              for c in e.get("competitions",[])[:3]:
+                print("BOUT",json.dumps(c)[:1500])
           PY
