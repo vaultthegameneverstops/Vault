@@ -26,8 +26,8 @@ The privacy page also says VAULT is hosted on claude.ai; update that wording in 
 ## Live scores (auto-update)
 The **Live scores** GitHub Action runs every 5 minutes (GitHub may delay scheduled runs by a few minutes when busy).
 It pulls NFL, college football, NBA and men's college basketball scores from ESPN's public scoreboard, merges them with `tools/live.py`,
-commits `scores.json` / `plays.json` only when something changed, and deploys the site.
-One-time setup: **Settings > Pages > Build and deployment > Source: GitHub Actions**. Run it by hand from the Actions tab with *Run workflow*.
+commits `scores.json` / `plays.json` only when something changed; GitHub Pages publishes each commit.
+Run it by hand from the Actions tab with *Run workflow*.
 `data.json` (stories) is not touched by this job.
 
 Football highlight plays (20+ yard passes, 15+ yard runs, takeaways, return scores) come from ESPN's play-by-play with full player names

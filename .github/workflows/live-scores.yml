@@ -1,7 +1,8 @@
 name: Live scores
 
-# Every 5 minutes: pull live scores from ESPN's public scoreboard, merge them into
-# scores.json / plays.json with tools/live.py, commit if anything changed, and deploy the site.
+# Every ~5 minutes: pull live scores from ESPN's public scoreboard, merge them into
+# scores.json / plays.json with tools/live.py and commit if anything changed.
+# GitHub Pages (deploy from branch) publishes each commit.
 on:
   schedule:
     - cron: "*/5 * * * *"
@@ -79,27 +80,10 @@ jobs:
           done
           exit 1
 
-      - name: Package site
-        if: steps.merge.outputs.changed == 'true' || github.event_name != 'schedule'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
-  deploy:
-    needs: update
-    if: needs.update.outputs.changed == 'true' || github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
-
   # GitHub's cron often runs late or skips. Each scheduled/manual run waits ~4 minutes,
   # then queues the next one, so scores keep flowing about every 5 minutes.
   next:
-    needs: [update, deploy]
+    needs: [update]
     if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 8
