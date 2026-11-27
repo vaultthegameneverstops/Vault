@@ -649,17 +649,22 @@ var HD_SRC='import{KokoroTTS}from"https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+
  'if(m.type==="gen"){try{const a=await t.generate(m.text,{voice:m.voice,speed:m.speed||1});self.postMessage({type:"audio",id:m.id,blob:a.toBlob(),secs:a.audio.length/a.sampling_rate})}catch(err){self.postMessage({type:"fail",id:m.id})}}};';
 function hdSupported(){return typeof Worker!=="undefined"&&typeof WebAssembly!=="undefined"}
 function hdLoad(){
- if(HD.st==="loading"||HD.st==="ready"||!hdSupported())return;HD.st="loading";hdUI();
- try{HD.w=new Worker(URL.createObjectURL(new Blob([HD_SRC],{type:"text/javascript"})),{type:"module"})}catch(_){HD.st="error";hdUI();return}
- HD.w.onmessage=function(ev){var m=ev.data;
-  if(m.type==="progress"){HD.pct=Math.max(HD.pct,Math.round(m.p||0));hdUI()}
-  else if(m.type==="ready"){HD.st="ready";HD.dev=m.dev;hdUI();if(bpSound&&bpPlaying){hdPrefetch()}}
-  else if(m.type==="warn"){if(window.console)console.warn("VAULT HD voices:",m.msg)}
-  else if(m.type==="error"){HD.st="error";hdUI()}
-  else if(m.type==="audio"||m.type==="fail"){var c=HD.cb[m.id];delete HD.cb[m.id];if(c)c(m.type==="audio"?URL.createObjectURL(m.blob):null)}};
- HD.w.onerror=function(ev){if(window.console)console.warn("VAULT HD worker error:",ev&&ev.message);HD.st="error";hdUI()};
- var gpu=!!navigator.gpu&&!/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
- HD.w.postMessage({type:"load",opts:gpu?[{device:"webgpu",dtype:"fp32"},{device:"wasm",dtype:"q8"}]:[{device:"wasm",dtype:"q8"}]})}
+ if(HD.st==="loading"||HD.st==="ready"||!hdSupported())return;HD.st="loading";HD.pct=0;hdUI();
+ var mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+ var go=function(opt,fallback){
+  if(HD.w)try{HD.w.terminate()}catch(_){}
+  try{HD.w=new Worker(URL.createObjectURL(new Blob([HD_SRC],{type:"text/javascript"})),{type:"module"})}catch(_){HD.st="error";hdUI();return}
+  HD.w.onmessage=function(ev){var m=ev.data;
+   if(m.type==="progress"){HD.pct=Math.max(HD.pct,Math.round(m.p||0));hdUI()}
+   else if(m.type==="ready"){HD.st="ready";HD.dev=m.dev;hdUI();if(bpSound&&bpPlaying)hdPrefetch()}
+   else if(m.type==="warn"){if(window.console)console.warn("VAULT HD voices:",m.msg)}
+   else if(m.type==="error"){if(fallback){HD.pct=0;go(fallback,null)}else{HD.st="error";hdUI()}}
+   else if(m.type==="audio"||m.type==="fail"){var c=HD.cb[m.id];delete HD.cb[m.id];if(c)c(m.type==="audio"?URL.createObjectURL(m.blob):null)}};
+  HD.w.onerror=function(ev){if(window.console)console.warn("VAULT HD worker error:",ev&&ev.message);if(fallback){go(fallback,null)}else{HD.st="error";hdUI()}};
+  HD.w.postMessage({type:"load",opts:[opt]})};
+ var wasm={device:"wasm",dtype:"q8"};
+ if(navigator.gpu&&!mobile&&navigator.gpu.requestAdapter){navigator.gpu.requestAdapter().then(function(a){if(a)go({device:"webgpu",dtype:"fp32"},wasm);else go(wasm,null)}).catch(function(){go(wasm,null)})}
+ else go(wasm,null)}
 function hdLine(l){
  var p=CREW[l.w],other=CREW[l.w==="rex"?"ice":"rex"],key=(l.key||l.t)+"|"+p.n;if(HD.cache[key])return HD.cache[key];
  var speed=(l.w==="rex"?1.08:0.98)*(l.h?1.06:1);
