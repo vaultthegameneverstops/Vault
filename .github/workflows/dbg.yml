@@ -4,33 +4,37 @@ jobs:
   d:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: |
+          mkdir k && cd k && npm init -y >/dev/null && npm i kokoro-js@latest >/dev/null 2>&1; npm ls kokoro-js
+          cat > t.mjs <<'JS'
+          import { KokoroTTS } from "kokoro-js";
+          const t0=Date.now();
+          const tts = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", { dtype: "q8", device: "cpu" });
+          console.log("LOAD ms", Date.now()-t0);
+          console.log("VOICES", JSON.stringify(Object.keys(tts.voices||{})));
+          const t1=Date.now();
+          const a = await tts.generate("Mahomes drops back, fires deep down the left side, caught by Kelce! First down Chiefs!", { voice: "am_michael" });
+          console.log("GEN ms", Date.now()-t1, "sr", a.sampling_rate, "len", a.audio.length, "proto", Object.getOwnPropertyNames(Object.getPrototypeOf(a)).join(","));
+          JS
+          node t.mjs 2>&1 | tail -8
+          du -sh ~/.cache/huggingface 2>/dev/null; find / -name "model_quantized.onnx" -path "*Kokoro*" 2>/dev/null | xargs -r ls -la; find / -name "*.onnx" -size +10M 2>/dev/null | grep -i kokoro | xargs -r ls -la
+          grep -o '"version": "[^"]*"' node_modules/kokoro-js/package.json
+          grep -n "dtype\|q4\|q8\|fp16\|webgpu" node_modules/kokoro-js/README.md | head -20
       - run: |
           python3 - <<'PY'
           import json,urllib.request
           def g(u): return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={"User-Agent":"Mozilla/5.0"})))
-          B="https://site.api.espn.com/apis/site/v2/sports/"
-          for path,q in [("basketball/mens-college-basketball","?groups=50&limit=400"),("basketball/nba","")]:
-            sb=g(B+path+"/scoreboard"+q)
+          B="https://site.api.espn.com/apis/site/v2/sports/football/"
+          for path in ["nfl","college-football"]:
+            sb=g(B+path+"/scoreboard")
             ev=[e for e in sb["events"] if e["status"]["type"]["state"]!="pre"]
-            print("PATH",path,len(sb["events"]),len(ev))
-            if not sb["events"]: continue
-            c=sb["events"][0]["competitions"][0]["competitors"][0]
-            print("TEAM",json.dumps({k:c["team"].get(k) for k in ("logo","color","alternateColor","abbreviation")}),json.dumps(c.get("records"))[:200])
             if not ev: continue
             s=g(B+path+"/summary?event="+ev[0]["id"])
-            print("SKEYS",list(s.keys()))
-            pl=s.get("plays") or []
-            print("NPLAYS",len(pl))
-            for p in [x for x in pl if x.get("shootingPlay")][-6:]: print("PLAY",json.dumps(p)[:900])
-            for p in [x for x in pl if "Block" in x.get("type",{}).get("text","") or "Steal" in x.get("type",{}).get("text","")][-2:]: print("PLAYO",json.dumps(p)[:600])
-            print("TYPES",sorted({x.get("type",{}).get("text") for x in pl})[:60])
-            bp=s["boxscore"]["players"][0]["statistics"][0]
-            print("BOXP",json.dumps({k:bp.get(k) for k in ("names","keys","labels")}),json.dumps(bp["athletes"][0])[:500])
-          for lg in ["ufc"]:
-            sb=g(B+"mma/"+lg+"/scoreboard")
-            print("MMA events",len(sb.get("events",[])))
-            for e in sb.get("events",[])[:1]:
-              print("MEV",json.dumps({k:e.get(k) for k in ("id","name","date","status")})[:600])
-              for c in e.get("competitions",[])[:3]:
-                print("BOUT",json.dumps(c)[:1500])
+            dr=s["drives"]; pl=[p for d in dr.get("previous",[]) for p in d["plays"]]
+            types={}
+            for p in pl: types.setdefault(p["type"]["text"],p)
+            for k,p in types.items(): print("T",path,"|",k,"|",p.get("text","")[:170],"|",(p.get("start") or {}).get("downDistanceText"),"|",p.get("statYardage"))
+            d0=dr["previous"][-1]; print("DRIVE",json.dumps({k:d0.get(k) for k in ("description","displayResult","shortDisplayResult","yards","offensivePlays","isScore")}))
           PY
