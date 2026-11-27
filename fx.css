@@ -715,3 +715,21 @@ a.wpg-c:hover{border-color:#3b82f6;background:#11203a}
 .ar-tw.a{left:-560px;top:-380px}.ar-tw.b{left:560px;top:-380px}.ar-tw.c{left:-560px;top:380px}.ar-tw.d{left:560px;top:380px}
 .ar-ground{left:-760px;top:-560px;width:1520px;height:1120px}
 .ar-rib.s span{transform:scaleY(-1)}
+/* zoomable win probability graph */
+.wpc-ctl{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.wpc-ctl button{min-width:34px;height:30px;padding:0 10px;border-radius:999px;border:1px solid #2a3a5a;background:#0b1220;color:#cfd6e0;font:700 12px var(--sn-bd,system-ui);cursor:pointer}
+.wpc-ctl button:hover:not(:disabled){background:#13203a}
+.wpc-ctl button[aria-pressed=true]{background:#2563eb;border-color:#60a5fa;color:#fff}
+.wpc-ctl button:disabled{opacity:.4;cursor:default}
+.wpc-ctl button[data-wz=in],.wpc-ctl button[data-wz=out]{font-size:16px;padding:0}
+.wpc-box{position:relative;touch-action:pan-y;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.wpc-box.zoomed{cursor:grab}
+.wpc-box.zoomed:active{cursor:grabbing}
+.wpc-hov line{stroke:#fff;stroke-opacity:.55;stroke-width:1;stroke-dasharray:3 3}
+.wpc-hov circle{fill:#fff;stroke:#0b0f17;stroke-width:2}
+.wpc-hov rect{fill:#05070c;fill-opacity:.92;stroke:#2a3a5a}
+.wpc-hov text{font:700 12px var(--sn-bd,system-ui);fill:#fff}
+.wpc-sw{margin-left:6px;padding:2px 10px;border-radius:999px;border:1px solid #2a3a5a;background:#0b1220;color:#93c5fd;font:700 12px var(--sn-bd,system-ui);cursor:pointer}
+/* logos on dark win-probability cards: a light badge so dark logos (navy, black) stay visible */
+.wpg-r .tlogo,.wpb .tlogo,.wpb-r .tlogo{background:#f4f5f7!important;border-radius:50%;padding:3px;box-sizing:border-box;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+.wpg-r .tlogo{width:34px!important;height:34px!important;padding:4px}

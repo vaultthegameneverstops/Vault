@@ -379,28 +379,66 @@ function wpBar(g,compact){var w=wpOf(g);if(!w)return "";var ca=tcol(g.lg,g.a),ch
 /* win probability over the game: home team above the 50% line, away team below; each team's peak is marked */
 var WPC=0;
 function perLabel(g,p){var L=String(g.lg).toUpperCase();if(L==="CBB")return p>2?"OT":"H"+p;return p>4?"OT":"Q"+p}
-function wpChart(g){var w=g&&WP[gid(g)],l=w&&w.l;if(!l||l.length<2)return "";
- var id="wpc"+(++WPC),W=640,H=200,L=44,R=14,T=14,B=26,iw=W-L-R,ih=H-T-B,n=l.length,ca=hexOf(tcol(g.lg,g.a)),ch=hexOf(tcol(g.lg,g.h));
- var X=function(i){return L+iw*i/(n-1)},Y=function(v){return T+ih*(1-v/100)},mid=Y(50);
- var line=l.map(function(q,i){return (i?"L":"M")+X(i).toFixed(1)+" "+Y(q[0]).toFixed(1)}).join(""),area=line+"L"+X(n-1).toFixed(1)+" "+mid+"L"+L+" "+mid+"Z";
+/* zoom state per game: window [a,b] in point indexes */
+var WPZ={},WPG={};
+function wpVal(l,t){var i=Math.floor(t),f=t-i;if(i>=l.length-1)return l[l.length-1][0];if(i<0)return l[0][0];return l[i][0]+(l[i+1][0]-l[i][0])*f}
+function wpSVG(g,l,a,b){
+ var W=640,H=210,L=44,R=14,T=14,B=26,iw=W-L-R,ih=H-T-B,n=l.length,ca=hexOf(tcol(g.lg,g.a)),ch=hexOf(tcol(g.lg,g.h));
+ var X=function(t){return L+iw*(t-a)/(b-a)},Y=function(v){return T+ih*(1-v/100)},mid=Y(50),inW=function(t){return t>=a-1e-9&&t<=b+1e-9};
+ var ts=[a];for(var i=Math.ceil(a);i<=Math.floor(b);i++)if(i>a&&i<b)ts.push(i);ts.push(b);
+ var pts=[];ts.forEach(function(t,k){var v=wpVal(l,t);if(k){var u=pts[pts.length-1];if((u[1]-50)*(v-50)<0){var f=(50-u[1])/(v-u[1]);pts.push([u[0]+(t-u[0])*f,50])}}pts.push([t,v])});
+ var line=pts.filter(function(p,k){return k===0||ts.indexOf(p[0])>-1}).map(function(p,k){return (k?"L":"M")+X(p[0]).toFixed(1)+" "+Y(p[1]).toFixed(1)}).join("");
+ var band=function(up){return "M"+L+" "+mid+pts.map(function(p){var v=up?Math.max(50,p[1]):Math.min(50,p[1]);return "L"+X(p[0]).toFixed(1)+" "+Y(v).toFixed(1)}).join("")+"L"+(W-R)+" "+mid+"Z"};
  var s='<svg class="wpc-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Win probability through the game">';
  s+='<g class="wpc-grid">'+[0,25,50,75,100].map(function(v){return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'"'+(v===50?' class="mid"':"")+'/>'}).join("")+'</g>';
- var lp=null;l.forEach(function(q,i){if(q[1]!==lp){if(i)s+='<line class="wpc-per" x1="'+X(i).toFixed(1)+'" x2="'+X(i).toFixed(1)+'" y1="'+T+'" y2="'+(H-B)+'"/>';var j=i;while(j<n&&l[j][1]===q[1])j++;s+='<text class="wpc-pl" x="'+((X(i)+X(j-1))/2).toFixed(1)+'" y="'+(H-8)+'">'+esc(perLabel(g,q[1]))+'</text>';lp=q[1]}});
- var pts=[];l.forEach(function(q,i){if(i){var a=l[i-1][0],b=q[0];if((a-50)*(b-50)<0){var t=(50-a)/(b-a);pts.push([i-1+t,50])}}pts.push([i,q[0]])});
- var band=function(up){return "M"+L+" "+mid+pts.map(function(p){var v=up?Math.max(50,p[1]):Math.min(50,p[1]);return "L"+X(p[0]).toFixed(1)+" "+Y(v).toFixed(1)}).join("")+"L"+X(n-1).toFixed(1)+" "+mid+"Z"};
+ /* periods: separators and labels for the part in view */
+ var segs=[],st=0;for(i=1;i<=n;i++)if(i===n||l[i][1]!==l[st][1]){segs.push([st,i-1,l[st][1]]);st=i}
+ segs.forEach(function(sg,k){var x0=Math.max(a,sg[0]-(k?.5:0)),x1=Math.min(b,sg[1]+(k<segs.length-1?.5:0));if(x1<=x0)return;
+  if(k&&inW(sg[0]-.5))s+='<line class="wpc-per" x1="'+X(sg[0]-.5).toFixed(1)+'" x2="'+X(sg[0]-.5).toFixed(1)+'" y1="'+T+'" y2="'+(H-B)+'"/>';
+  if(X(x1)-X(x0)>22)s+='<text class="wpc-pl" x="'+((X(x0)+X(x1))/2).toFixed(1)+'" y="'+(H-8)+'">'+esc(perLabel(g,sg[2]))+'</text>'});
  s+='<path d="'+band(true)+'" fill="'+ch+'" fill-opacity=".6"/><path d="'+band(false)+'" fill="'+ca+'" fill-opacity=".6"/>';
  s+='<path class="wpc-line" d="'+line+'"/>';
  s+='<text class="wpc-ax" x="'+(L-8)+'" y="'+(T+10)+'">'+esc(g.h)+'</text><text class="wpc-ax" x="'+(L-8)+'" y="'+(mid+4)+'">50%</text><text class="wpc-ax" x="'+(L-8)+'" y="'+(H-B)+'">'+esc(g.a)+'</text>';
  var hi=0,lo=0;l.forEach(function(q,i){if(q[0]>l[hi][0])hi=i;if(q[0]<l[lo][0])lo=i});
- function mark(i,team,val,up){var x=X(i),y=Y(l[i][0]),anchor=x>W-130?"end":x<L+90?"start":"middle",ty=up?Math.max(T+11,y-10):Math.min(H-B-4,y+18);
+ function mark(i,team,val,up){if(!inW(i))return "";var x=X(i),y=Y(l[i][0]),anchor=x>W-130?"end":x<L+90?"start":"middle",ty=up?Math.max(T+11,y-10):Math.min(H-B-4,y+18);
   return '<circle class="wpc-pk" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4.5"/><text class="wpc-pt" x="'+x.toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="'+anchor+'">'+esc(team)+' peak '+Math.round(val)+'%</text>'}
  if(l[hi][0]>50)s+=mark(hi,g.h,l[hi][0],true);
  if(l[lo][0]<50)s+=mark(lo,g.a,100-l[lo][0],false);
- var e=l[n-1];s+='<circle class="wpc-now" cx="'+X(n-1).toFixed(1)+'" cy="'+Y(e[0]).toFixed(1)+'" r="5"/>';
- var sw=0,sa=0,sb=0;for(var i=0;i<n;i++)for(var j=i+1;j<n;j++){var d=Math.abs(l[j][0]-l[i][0]);if(d>sw){sw=d;sa=i;sb=j}}
+ if(inW(n-1))s+='<circle class="wpc-now" cx="'+X(n-1).toFixed(1)+'" cy="'+Y(l[n-1][0]).toFixed(1)+'" r="5"/>';
+ s+='<g class="wpc-hov" style="display:none"><line y1="'+T+'" y2="'+(H-B)+'"/><circle r="5"/><rect rx="6" height="22"/><text y="0"></text></g>';
+ s+='<rect class="wpc-hit" x="'+L+'" y="'+T+'" width="'+iw+'" height="'+ih+'" fill="transparent"/>';
+ return s+'</svg>'}
+function wpChart(g){var k=gid(g),w=g&&WP[k],l=w&&w.l;if(!l||l.length<2)return "";WPG[k]=g;
+ var n=l.length,z=WPZ[k];if(!z||z.n!==n&&z.b>=z.n-1){var span=z?z.b-z.a:n-1;z=WPZ[k]={a:Math.max(0,(z?n-1-span:0)),b:n-1,n:n}}z.n=n;z.b=Math.min(z.b,n-1);z.a=Math.max(0,Math.min(z.a,z.b-4));
+ var zoomed=z.a>0||z.b<n-1,segs=[],st=0;for(var i=1;i<=n;i++)if(i===n||l[i][1]!==l[st][1]){segs.push([st,i-1,l[st][1]]);st=i}
+ var sw=0,sa=0,sb=0;for(i=0;i<n;i++)for(var j=i+1;j<n;j++){var d=Math.abs(l[j][0]-l[i][0]);if(d>sw){sw=d;sa=i;sb=j}}
  var lead=function(v){return v>=50?g.h+" "+Math.round(v)+"%":g.a+" "+Math.round(100-v)+"%"};
- var note=sw>=30?'<p class="wpc-n">Biggest swing: '+esc(lead(l[sa][0]))+' → '+esc(lead(l[sb][0]))+' ('+esc(perLabel(g,l[sa][1]))+(l[sb][1]!==l[sa][1]?"–"+esc(perLabel(g,l[sb][1])):"")+')</p>':"";
- return '<div class="wpc"><div class="wpb-h"><span>Win probability, all game</span><small>ESPN</small></div>'+s+'</svg>'+note+'</div>'}
+ var note=sw>=30?'<p class="wpc-n">Biggest swing: '+esc(lead(l[sa][0]))+' → '+esc(lead(l[sb][0]))+' ('+esc(perLabel(g,l[sa][1]))+(l[sb][1]!==l[sa][1]?"–"+esc(perLabel(g,l[sb][1])):"")+') <button type="button" class="wpc-sw" data-wz="sw" data-a="'+sa+'" data-b="'+sb+'">Zoom to it</button></p>':"";
+ var ctl='<div class="wpc-ctl" role="group" aria-label="Zoom the graph"><button type="button" data-wz="in" aria-label="Zoom in">+</button><button type="button" data-wz="out" aria-label="Zoom out"'+(zoomed?"":" disabled")+'>−</button><button type="button" data-wz="all"'+(zoomed?"":' aria-pressed="true"')+'>Full game</button>'+
+  segs.map(function(sg){var on=zoomed&&Math.abs(z.a-Math.max(0,sg[0]-.5))<.01&&Math.abs(z.b-Math.min(n-1,sg[1]+.5))<.01;return '<button type="button" data-wz="p" data-a="'+Math.max(0,sg[0]-.5)+'" data-b="'+Math.min(n-1,sg[1]+.5)+'"'+(on?' aria-pressed="true"':"")+'>'+esc(perLabel(g,sg[2]))+'</button>'}).join("")+'</div>';
+ return '<div class="wpc" data-wpc="'+esc(k)+'"><div class="wpb-h"><span>Win probability, all game</span><small>'+(zoomed?"Drag to move · ":"")+'Scroll, pinch or + to zoom</small></div>'+ctl+'<div class="wpc-box'+(zoomed?" zoomed":"")+'">'+wpSVG(g,l,z.a,z.b)+'</div>'+note+'</div>'}
+function wpRedraw(box){var k=box.getAttribute("data-wpc"),g=WPG[k];if(!g)return;var html=wpChart(g);if(!html)return;var t=document.createElement("div");t.innerHTML=html;box.replaceWith(t.firstChild)}
+function wpZoom(k,f,c){var z=WPZ[k];if(!z)return;var n=z.n,span=z.b-z.a,ns=Math.max(4,Math.min(n-1,span*f));if(c==null)c=(z.a+z.b)/2;var r=(c-z.a)/(span||1);var na=c-ns*r;na=Math.max(0,Math.min(n-1-ns,na));z.a=na;z.b=na+ns}
+function wpBoxT(box,clientX){var svg=box.querySelector("svg"),r=svg.getBoundingClientRect(),x=(clientX-r.left)/r.width*640,z=WPZ[box.closest(".wpc").getAttribute("data-wpc")];var f=Math.max(0,Math.min(1,(x-44)/(640-58)));return z.a+(z.b-z.a)*f}
+function wpHover(box,clientX){var wrap=box.closest(".wpc"),k=wrap.getAttribute("data-wpc"),g=WPG[k],w=WP[k],z=WPZ[k];if(!g||!w||!z)return;var l=w.l,t=Math.round(wpBoxT(box,clientX));t=Math.max(Math.ceil(z.a),Math.min(Math.floor(z.b),t));
+ var x=44+582*(t-z.a)/(z.b-z.a),v=l[t][0],y=14+170*(1-v/100),hv=box.querySelector(".wpc-hov");if(!hv)return;hv.style.display="";
+ var lab=(v>=50?g.h+" "+Math.round(v)+"%":g.a+" "+Math.round(100-v)+"%")+" · "+perLabel(g,l[t][1]),tw=lab.length*6.6+16,tx=Math.max(46,Math.min(624-tw,x-tw/2));
+ hv.querySelector("line").setAttribute("x1",x);hv.querySelector("line").setAttribute("x2",x);hv.querySelector("circle").setAttribute("cx",x);hv.querySelector("circle").setAttribute("cy",y);
+ var rc=hv.querySelector("rect");rc.setAttribute("x",tx);rc.setAttribute("y",y<50?y+12:y-34);rc.setAttribute("width",tw);var tt=hv.querySelector("text");tt.textContent=lab;tt.setAttribute("x",tx+8);tt.setAttribute("y",(y<50?y+12:y-34)+15)}
+(function(){var drag=null,pts={},pinch=null;
+ document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-wz]");if(!b)return;var wrap=b.closest(".wpc"),k=wrap&&wrap.getAttribute("data-wpc"),z=WPZ[k];if(!z)return;var m=b.getAttribute("data-wz");
+  if(m==="in")wpZoom(k,.5);else if(m==="out")wpZoom(k,2);else if(m==="all"){z.a=0;z.b=z.n-1}else{z.a=Math.max(0,+b.getAttribute("data-a")-(m==="sw"?2:0));z.b=Math.min(z.n-1,+b.getAttribute("data-b")+(m==="sw"?2:0))}wpRedraw(wrap)});
+ document.addEventListener("wheel",function(e){var box=e.target.closest&&e.target.closest(".wpc-box");if(!box)return;e.preventDefault();var wrap=box.closest(".wpc"),k=wrap.getAttribute("data-wpc");wpZoom(k,e.deltaY<0?.8:1.25,wpBoxT(box,e.clientX));wpRedraw(wrap)},{passive:false});
+ document.addEventListener("pointerdown",function(e){var box=e.target.closest&&e.target.closest(".wpc-box");if(!box)return;pts[e.pointerId]=e.clientX;var ids=Object.keys(pts);var k=box.closest(".wpc").getAttribute("data-wpc");
+  if(ids.length===2){var xs=ids.map(function(i){return pts[i]});pinch={k:k,d:Math.abs(xs[0]-xs[1])||1,c:wpBoxT(box,(xs[0]+xs[1])/2)};drag=null}else drag={k:k,x:e.clientX,a:WPZ[k]&&WPZ[k].a};
+  try{box.setPointerCapture(e.pointerId)}catch(_){}});
+ document.addEventListener("pointermove",function(e){var box=e.target.closest&&e.target.closest(".wpc-box");if(pts[e.pointerId]!=null)pts[e.pointerId]=e.clientX;
+  if(pinch){var ids=Object.keys(pts);if(ids.length===2){var xs=ids.map(function(i){return pts[i]}),d=Math.abs(xs[0]-xs[1])||1;if(Math.abs(d/pinch.d-1)>.08){wpZoom(pinch.k,pinch.d/d,pinch.c);pinch.d=d;var w=document.querySelector('.wpc[data-wpc="'+pinch.k+'"]');if(w)wpRedraw(w)}}return}
+  if(drag&&drag.a!=null){var z=WPZ[drag.k],w2=document.querySelector('.wpc[data-wpc="'+drag.k+'"] .wpc-box');if(!z||!w2)return;var r=w2.getBoundingClientRect(),span=z.b-z.a,dt=-(e.clientX-drag.x)/r.width*span*1.1;var na=Math.max(0,Math.min(z.n-1-span,drag.a+dt));if(Math.abs(na-z.a)>.05){z.a=na;z.b=na+span;wpRedraw(w2.closest(".wpc"))}return}
+  if(box)wpHover(box,e.clientX)});
+ ["pointerup","pointercancel"].forEach(function(t){document.addEventListener(t,function(e){delete pts[e.pointerId];if(Object.keys(pts).length<2)pinch=null;if(!Object.keys(pts).length)drag=null})});
+ document.addEventListener("pointerout",function(e){var box=e.target.closest&&e.target.closest(".wpc-box");if(box&&!box.contains(e.relatedTarget)){var hv=box.querySelector(".wpc-hov");if(hv)hv.style.display="none"}});
+})();
 function wpCards(){document.querySelectorAll("#view .sc[data-game]").forEach(function(c){var a=A(),g=null;if(!a||!a.D)return;(a.D.ticker||[]).forEach(function(x){if(gid(x)===c.getAttribute("data-game"))g=x});
  var old=c.querySelector(".wpb"),html=g?wpBar(g,true):"";if(old){if(old.outerHTML!==html){if(html)old.outerHTML=html;else old.remove()}}else if(html)c.insertAdjacentHTML("beforeend",html)})}
 function wpGame(){var h=(location.hash||"").slice(1);if(h.indexOf("game-")!==0)return;var gm=$("#view article .gm");if(!gm)return;var a=A(),g=null;((a&&a.D&&a.D.ticker)||[]).forEach(function(x){if(gid(x)===h.slice(5))g=x});
