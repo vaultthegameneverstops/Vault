@@ -473,7 +473,10 @@ var CREWS=[
  {rex:{n:"Priya Desai",f:"Priya",i:"PD",c:"#f97316",lk:look({skin:"#B8805A",skin2:"#A36F4C",jacket:"#431407",lapel:"#2f0e05",shirt:"#fff7ed",tie:null,hairC:"#0c0806",hs:H_LONG,brow:"#0c0806",accent:"#f97316",f:true}),v:{g:"f",p:1.05,r:1.04}},
   ice:{n:"Mike Kowalski",f:"Kowalski",i:"MK",c:"#fb923c",lk:look({skin:"#EDBB98",skin2:"#D9A47F",jacket:"#292524",lapel:"#1c1917",tie:"#ea580c",hairC:"#44403c",hs:H_BALD,beard:"#57534e",glasses:true,brow:"#44403c",accent:"#fb923c"}),v:{g:"m",p:.78,r:.95}}}
 ];
-var CREW={rex:Object.assign({r:"Play-by-play"},CREWS[0].rex),ice:Object.assign({r:"Analyst"},CREWS[0].ice)};
+var CREW={rex:Object.assign({r:"Play-by-play"},CREWS[0].rex),ice:Object.assign({r:"Analyst"},CREWS[0].ice),sid:{n:"",f:"",r:"Sideline reporter",lk:null,v:{g:"f",p:1,r:1}}};
+/* the VAULT studio: fictional hosts who whip around every live game */
+var STUDIO={rex:{n:"Jordan Avery",f:"Jordan",i:"JA",c:"#facc15",r:"Studio host",lk:look({skin:"#A8714A",skin2:"#93613E",jacket:"#111827",lapel:"#030712",tie:"#facc15",hairC:"#0f0a07",hs:H_BUZZ,brow:"#0f0a07",accent:"#facc15"}),v:{g:"m",p:.95,r:1.06}},
+ ice:{n:"Kim Sato",f:"Kim",i:"KS",c:"#fde047",r:"VAULT insider",lk:look({skin:"#EFCDAD",skin2:"#DDB794",jacket:"#7c2d12",lapel:"#5a200d",shirt:"#fff7ed",tie:null,hairC:"#0b0b0b",hs:H_BUN,glasses:true,brow:"#0b0b0b",accent:"#fde047",f:true}),v:{g:"f",p:1.08,r:1.04}}};
 function hsh(s){var h=0;s=String(s);for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h}
 var CREW_ASSIGN={},CREW_N=0;
 /* more games than hand-made crews: build extra fictional crews from name and look pools */
@@ -484,13 +487,15 @@ var FN_M=["Chris","Brett","Gus","Kenny","Troy","Dave","Lou","Jalen","Mateo","Han
 var GEN_USED={};
 function genPerson(seed,f){var r=rnd(hsh(seed)%2147483646+1),pk=function(a){return a[Math.floor(r()*a.length)]};var sk=pk(SK),fn,ln,t=0;do{fn=pk(f?FN_F:FN_M);ln=pk(LN);t++}while((GEN_USED[ln]||GEN_USED[fn+ln])&&t<200);GEN_USED[ln]=GEN_USED[fn+ln]=1;var ac=pk(AC),jk=pk(JK);
  return {n:fn+" "+ln,f:fn,i:fn[0]+ln[0],c:ac,lk:look({skin:sk[0],skin2:sk[1],jacket:jk,lapel:"#0b0f19",tie:f?null:pk(["#e2e8f0",ac,"#0f172a"]),hairC:pk(HC),hs:f?pk([H_LONG,H_BUN,H_CURLY]):pk([H_SHORT,H_BUZZ,H_BALD,H_SIDE,H_CURLY]),beard:!f&&r()<.4?pk(HC):null,glasses:r()<.3,brow:"#1c1917",accent:ac,f:f}),v:{g:f?"f":"m",p:+(f?1+r()*.2:.7+r()*.4).toFixed(2),r:+(.9+r()*.22).toFixed(2)}}}
-function crewIdx(id){
- if(CREW_ASSIGN[id]!=null)return CREW_ASSIGN[id];
- var i=CREW_N++;while(i>=CREWS.length){var n=CREWS.length,fem=n%3===1;CREWS.push({rex:genPerson("p"+n,fem),ice:genPerson("c"+n,!fem&&n%4===0)})}
- return CREW_ASSIGN[id]=i}
-function assignCrews(){var l=bpGames().slice().sort(function(a,b){return (isLive(b)-isLive(a))||pr(a)-pr(b)});l.forEach(function(g){crewIdx(gid(g))})}
-function setCrew(id){if(CREW_ASSIGN[id]==null)assignCrews();var c=CREWS[crewIdx(id)];CREW={rex:Object.assign({r:"Play-by-play"},c.rex),ice:Object.assign({r:"Analyst"},c.ice)};return CREW}
-function crewNames(id){if(CREW_ASSIGN[id]==null)assignCrews();var c=CREWS[crewIdx(id)];return c.rex.n.replace(/ “.*”/,"").split(" ").slice(-1)[0]+" & "+c.ice.n.replace(/ “.*”/,"").split(" ").slice(-1)[0]}
+function ensureCrews(n){n=Math.max(24,n);while(CREWS.length<n){var k=CREWS.length,fem=k%3===1;CREWS.push({rex:genPerson("p"+k,fem),ice:genPerson("c"+k,!fem&&k%4===0)})}
+ CREWS.forEach(function(c,k){if(!c.sid)c.sid=genPerson("s"+k,k%2===0)})}
+function allGids(){var o={};games().forEach(function(g){o[gid(g)]=1});if(PL&&PL.games)Object.keys(PL.games).forEach(function(k){o[k]=1});return Object.keys(o).sort()}
+/* the same game always gets the same crew, on every page and every visit */
+function assignCrews(){var ids=allGids(),sig=ids.join(",");if(sig===assignCrews.sig)return;assignCrews.sig=sig;ensureCrews(ids.length);var used={},out={};
+ ids.forEach(function(id){var i=hsh(id)%CREWS.length,n=0;while(used[i]&&n<CREWS.length){i=(i+1)%CREWS.length;n++}used[i]=1;out[id]=i});CREW_ASSIGN=out}
+function crewIdx(id){assignCrews();if(CREW_ASSIGN[id]==null){ensureCrews(0);CREW_ASSIGN[id]=hsh(id)%CREWS.length}return CREW_ASSIGN[id]}
+function setCrew(id){var c=CREWS[crewIdx(id)];CREW={rex:Object.assign({r:"Play-by-play"},c.rex),ice:Object.assign({r:"Analyst"},c.ice),sid:Object.assign({r:"Sideline reporter"},c.sid)};return CREW}
+function crewNames(id){var c=CREWS[crewIdx(id)];return c.rex.n.replace(/ “.*”/,"").split(" ").slice(-1)[0]+" & "+c.ice.n.replace(/ “.*”/,"").split(" ").slice(-1)[0]}
 
 
 function avatar(k){var p=CREW[k];if(p.lk)return '<svg class="bo-av" viewBox="-80 290 160 200" aria-hidden="true"><rect x="-80" y="290" width="160" height="200" fill="#0B1324"/>'+personHead(p.lk)+'<rect x="-79" y="291" width="158" height="198" fill="none" stroke="'+p.c+'" stroke-width="5" rx="80"/></svg>';return '<svg class="bo-av" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="23" fill="#0B1324" stroke="'+p.c+'" stroke-width="2"/><path d="M10 40c3-8 8-11 14-11s11 3 14 11" fill="'+p.c+'" opacity=".35"/><circle cx="24" cy="19" r="8" fill="'+p.c+'" opacity=".55"/><path d="M13 19a11 11 0 0 1 22 0" fill="none" stroke="#DCE6F5" stroke-width="2.4"/><rect x="10" y="17" width="5" height="8" rx="2" fill="#DCE6F5"/><rect x="33" y="17" width="5" height="8" rx="2" fill="#DCE6F5"/><path d="M35 24c0 5-4 7-8 7" fill="none" stroke="#DCE6F5" stroke-width="1.6"/><text x="24" y="45.5" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="7" font-weight="900" fill="#fff">'+p.i+'</text></svg>'}
@@ -589,7 +594,9 @@ function other(e,ab){return ab===e.a?e.h:e.a}
 function spot(tx,e){var all=String(tx).match(/\bto\s+(?:the\s+)?([A-Z]{2,5})\s?(-?\d{1,2})\b/g);if(!all)return "";var m=/([A-Z]{2,5})\s?(-?\d{1,2})$/.exec(all[all.length-1]);if(!m)return "";var n=+m[2];return n===50?"50":(e?yl(e,m[1]):m[1])+" "+n}
 function yl(e,ab){return e&&(ab===e.a||ab===e.h)?team(e,ab):ab}
 var ORD={"1st":"First","2nd":"Second","3rd":"Third","4th":"Fourth"};
-function yds(n){n=Math.abs(n);return n===1?"a yard":n+" yards"}
+var NW=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"];
+function wn(n){n=Math.abs(+n||0);return n<=20?NW[n]:String(n)}
+function yds(n){n=Math.abs(n);return n===1?"a yard":wn(n)+" yards"}
 function ddSay(dd,e){dd=String(dd||"");var m=/^(1st|2nd|3rd|4th) & (\w+) at (.+)$/.exec(dd);if(!m)return "";var at=m[3].replace(/^([A-Z]+) (\d+)$/,function(_,a,n){return (+n===50?"midfield":"the "+yl(e,a)+" "+n)});return ORD[m[1]]+" and "+(m[2]==="Goal"?"goal":m[2])+" at "+at.replace(/^the midfield/,"midfield")+"."}
 function footballCall(e,p,k){
  var out=[],R=function(t,h){out.push({w:"rex",t:t,h:!!h})},I=function(t){out.push({w:"ice",t:t})},tx=p.tx||"",ty=p.ty||"",O=team(e,p.off),D=team(e,other(e,p.off)),dd=ddSay(p.dd,e),sp=spot(tx,e),m;
@@ -606,11 +613,12 @@ function footballCall(e,p,k){
  else if(/Field Goal/.test(ty)){m=RX.fg.exec(tx);var good=/GOOD/i.test(tx)&&!/NO GOOD/i.test(tx);R((m?lastName(m[1])+" for "+m[2]:"The field goal try")+"... the kick is up... "+(good?"and it's GOOD!":"and it's NO GOOD!"),1);I(good?S+". "+pick(["Points are points.","They'll take the three."],k):pick(["Oh, that's a big miss. You have to make those.","Wide! Points left on the board."],k))}
  else if(/Pass/.test(ty)){
   if(/Incompletion|incomplete/i.test(ty+tx)){m=RX.inc.exec(tx);R(dd+" "+(m?lastName(m[1])+" drops back"+(m[3]?", looking "+m[3]:"")+"... throws"+(m[4]?" for "+lastName(m[4])+"...":"...")+" incomplete.":"Pass falls incomplete."));if(down)I(pick(["Big stop by the "+D+" defense.","Tight coverage. Nothing open there."],k))}
-  else{m=RX.pass.exec(tx);var td=/Touchdown/i.test(ty)||/TOUCHDOWN/.test(tx),big=p.yd>=20;
-   R(dd+" "+(m?lastName(m[1])+" drops back"+(m[2]==="deep"?", lets it fly deep"+(m[3]?" down the "+m[3]+" side":""):m[3]?", fires "+(m[2]||"")+" "+m[3]:"")+"... CAUGHT by "+lastName(m[4])+"! ":"Pass complete! ")+(td?"He's in! TOUCHDOWN "+O.toUpperCase()+"!":big?"What a play! Gain of "+p.yd+"!":(sp?"Brought down at the "+sp+". ":"")+(p.yd>0?"Gain of "+yds(p.yd)+".":"No gain."))+(first&&!td?" First down, "+O+".":""),td||big);
+  else{m=RX.pass.exec(tx);var td=/Touchdown/i.test(ty)||/TOUCHDOWN/.test(tx),big=p.yd>=20,qb=m?lastName(m[1]):"",wr=m?lastName(m[4]):"",vb=pick(["fires","throws","delivers","zips it"],k+"v");
+   var zone=m?(m[2]==="deep"?pick(["lets it fly","airs it out","goes deep"],k+"z")+(m[3]?" down the "+m[3]+" side":""):vb+(m[3]?(m[3]==="middle"?" over the middle":" to the "+m[3]):"")):"";
+   R(dd+" "+(m?qb+"... "+zone+"... "+(td?wr+"... TOUCHDOWN! "+O+"!":big?wr+" has it! "+pick(["What a play!","Big gain!","Look at this!"],k+"b")+" "+(sp?"All the way to the "+sp+".":"Gain of "+wn(p.yd)+"."):"caught by "+wr+(sp?" at the "+sp:"")+". "+(p.yd>0?"Pickup of "+wn(p.yd)+".":"No gain.")):"Pass complete. Gain of "+wn(p.yd)+".")+(first&&!td?" "+pick(["First down.","Moves the chains.","That's a first down."],k+"f"):""),td||big);
    if(td)I(S+". "+pick(["Perfect throw, perfect route. Put it in the time capsule.","That's why he gets paid, "+CREW.rex.f+".","The defense blew the coverage and he made them pay."],k));else if(big)I(pick(["Look at the separation! He ran right by the corner.","That's the shot play, and it worked to perfection.","Huge chunk. That flips the field."],k));else if(down&&first)I(pick(["Big conversion. Keeps the drive alive.","Moved the chains on "+String(p.dd).split(" ")[0]+" down. Clutch."],k))}}
  else if(/Rush/.test(ty)){m=RX.rush.exec(tx);var td2=/Touchdown/i.test(ty)||/TOUCHDOWN/.test(tx);
-  R(dd+" "+(m?"Handoff to "+lastName(m[1])+(m[2]?", "+m[2]+" side":"")+"...":"Run play...")+" "+(td2?"he's IN! TOUCHDOWN "+O.toUpperCase()+"!":p.yd>=15?"he breaks free! "+p.yd+" yards!":p.yd>0?"picks up "+yds(p.yd)+".":p.yd===0?"stopped for no gain.":"dropped for a loss of "+yds(p.yd)+".")+(first&&!td2?" First down.":""),td2||p.yd>=15);
+  var rb=m?lastName(m[1]):"";R(dd+" "+(m?pick(["Handoff, "+rb,rb+" takes it",rb+" carries"],k+"r")+(m[2]?" "+m[2]+" side":/middle/.test(tx)?" up the middle":"")+"...":"Run play...")+" "+(td2?"he's IN! TOUCHDOWN "+O+"!":p.yd>=15?"he's loose! "+pick(["Breaks a tackle,","Cuts back,","Finds a crease,"],k+"c")+" "+wn(p.yd)+" yards!":p.yd>0?(p.yd<=3?"picks up "+yds(p.yd)+".":"good for "+wn(p.yd)+"."):p.yd===0?"stuffed. No gain.":"dropped for a loss of "+yds(p.yd)+".")+(first&&!td2?" "+pick(["First down.","Moves the chains."],k+"f"):""),td2||p.yd>=15);
   if(td2)I(S+". "+pick(["The offensive line just moved people.","Power football. They wanted it more.","Nobody laid a finger on him, "+CREW.rex.f+"."],k));else if(p.yd>=15)I(pick(["Huge hole on that side. Somebody missed an assignment.","Great vision, and he hit it full speed."],k));else if(down&&p.yd<=0)I("Stuffed! What a stand by the "+D+" defense.")}
  else if(tx)R(cleanDesc(tx));
  return out}
@@ -635,14 +643,52 @@ function hoopsCall(e,p,k){
 function snapLines(e,g){
  var rp=e.rp||[],out=[],fb=football(g||e),n=0;
  rp.forEach(function(p){var cs=fb?footballCall(e,p,p.id):hoopsCall(e,p,p.id);cs=chat(cs,p.id);cs.forEach(function(c,i){c.when=p.t||"";c.key="rp|"+p.id+"|"+i;out.push(c)});
-  if(cs.length&&++n%5===0){banter(e,g,hsh(p.id)%7+n).forEach(function(l,i){l.key="rpb|"+p.id+"|"+i;out.push(l)})}});
+  if(cs.length){n++;if(n%7===0)sideline(e,g,hsh(p.id)%5).forEach(function(l,i){l.key="sl|"+p.id+"|"+i;out.push(l)});else if(n%4===0)banter(e,g,hsh(p.id)%7+n).forEach(function(l,i){l.key="rpb|"+p.id+"|"+i;out.push(l)})}});
  return out}
+
+/* ---------- sideline reports (fictional VAULT reporters; every number comes from the feed) ---------- */
+function sideline(e,g,n){
+ var A=nick(e.an),H=nick(e.hn),k=gid(g)+"|sid|"+n,lv=/LIVE|HALF/.test(e.st||""),out=[],side=pick([H,A],k);
+ var R=function(t){out.push({w:"rex",t:t})},S=function(t){out.push({w:"sid",t:t})};
+ var facts=[];
+ if(e.dr&&e.dr.d&&e.dr.tm){var m=/(\d+) plays?, (-?\d+) yards?, (\d+:\d+)/.exec(e.dr.d);if(m)facts.push("The "+team(e,e.dr.tm)+" are on a "+m[1]+"-play drive that has gone "+m[2]+" yards and taken "+m[3]+" off the clock.")}
+ if(e.fs&&e.fs.a&&e.fs.h){facts.push("By the numbers: "+A+" "+e.fs.a.yds+" total yards, "+H+" "+e.fs.h.yds+".");if((e.fs.a.to||0)+(e.fs.h.to||0))facts.push("Turnovers: "+A+" "+(e.fs.a.to||0)+", "+H+" "+(e.fs.h.to||0)+". That's the stat both coaching staffs keep pointing at.")}
+ if(e.bs&&e.bs.a&&e.bs.h)facts.push(e.bs.a.ld+" has "+e.bs.a.pts+" for the "+A+", and "+e.bs.h.ld+" has "+e.bs.h.pts+" for the "+H+".");
+ if(e.sh&&e.sh.length){var mk={a:[0,0],h:[0,0]};e.sh.forEach(function(q){mk[q[3]][1]++;if(q[2])mk[q[3]][0]++});facts.push("Over the last stretch the "+A+" are "+mk.a[0]+" of "+mk.a[1]+" from the field, the "+H+" "+mk.h[0]+" of "+mk.h[1]+".")}
+ if(g.ar&&g.hr)facts.push("The "+A+" came in "+g.ar+" and the "+H+" "+g.hr+", so there's plenty riding on this one.");
+ var hls=(e.plays||[]).filter(function(x){return x.hl});if(hls.length)facts.push("The play everyone down here is still talking about: "+hls[hls.length-1].x);
+ if(!facts.length)return out;
+ R(pick(["Let's check in with "+CREW.sid.f+" on the sideline.","Let's go down to "+CREW.sid.f+".",CREW.sid.f+", what are you seeing down there?"],k));
+ S(pick(["Thanks, "+CREW.rex.f+". ","Hey, "+CREW.rex.f+". ",""],k+"a")+"I'm down here on the "+side+" sideline. "+facts[n%facts.length]+(facts.length>1?" "+facts[(n+1)%facts.length]:""));
+ R(pick(["Thanks, "+CREW.sid.f+".","Great stuff, "+CREW.sid.f+". Back to the action.","Appreciate it, "+CREW.sid.f+"."],k+"b"));
+ out.forEach(function(l,i){l.key="sid|"+n+"|"+i});return out}
+/* ---------- VAULT Whip-Around: the studio checks in on every live game ---------- */
+function studioLines(round){
+ var l=games().filter(isLive),out=[];CREW={rex:STUDIO.rex,ice:STUDIO.ice,sid:STUDIO.ice};
+ if(!l.length){out.push({w:"rex",t:"Welcome to the VAULT Whip-Around. Nothing is live right now, so we'll be right here when the next game kicks off."});return out}
+ if(!round)out.push({w:"rex",t:"Welcome to the VAULT Whip-Around! I'm "+STUDIO.rex.n+", alongside "+STUDIO.ice.n+". We've got "+l.length+" games going right now, and we'll take you to all of them."},{w:"ice",t:"Buckle up, "+STUDIO.rex.f+". There's a lot happening."});
+ l.slice().sort(function(a,b){return pr(a)-pr(b)}).forEach(function(g,i){var id=gid(g),e=bpEntry(g),k=id+"|"+round,S=scoreLine(e,g.as,g.hs);
+  out.push({w:"rex",t:pick(["Let's head to ","Over to ","Now let's check in on "],k)+nm(g,"a")+" at "+nm(g,"h")+". "+S+", "+clock(g)+" to go.",when:g.lg});
+  var last=(e.rp&&e.rp.length?e.rp[e.rp.length-1]:null),hl=(e.plays||[]).filter(function(x){return x.hl}).slice(-1)[0];
+  if(hl)out.push({w:"ice",t:pick(["The big moment there: ","What jumps out: ","Can't miss this one: "],k+"i")+hl.x,when:g.lg});
+  else if(last&&last.tx)out.push({w:"ice",t:"Most recent play: "+cleanDesc(last.tx.replace(/^\(\d+:\d+\)\s*/,"")),when:g.lg});
+  else out.push({w:"ice",t:pick((Math.abs(g.as-g.hs)<=8?["Tight one. Every possession matters.","Crunch-time feel to this one.","Keep an eye on this one."]:["One team is in control here.","They've built a cushion. Can the other side answer?","Keep an eye on this one."]),k+"j"),when:g.lg})});
+ out.push({w:"rex",t:"That's a lap around VAULT. We'll keep whipping around as the scores change."});
+ out.forEach(function(x,i){x.key="studio|"+round+"|"+i});return out}
 
 /* ---------- HD broadcast voices: Kokoro neural TTS running in the visitor's browser (free, no server) ---------- */
 var KV={"Rex Calloway":"am_michael","Dante “Ice” Whitfield":"am_onyx","Marcus Bell":"am_fenrir","Tony “Coach” Reyes":"bm_george","Lena Ortiz":"af_heart","“Big” Earl Jackson":"am_echo","Jim Halvorsen":"am_eric","Keisha Monroe":"af_nicole",
  "Sam “Sparky” Delgado":"am_puck","Ray Booker":"bm_lewis","Nina Park":"af_bella","Doug “Tank” Brennan":"am_adam","Cole Whitaker":"am_liam","Andre Simms":"bm_daniel","Priya Desai":"af_sarah","Mike Kowalski":"bm_fable"};
 var KF=["af_jessica","af_kore","af_nova","af_river","af_sky","af_aoede","af_alloy","bf_emma","bf_isabella","bf_alice","bf_lily"],KM=["am_michael","am_onyx","am_fenrir","am_eric","am_puck","am_adam","am_liam","am_echo","bm_george","bm_lewis","bm_daniel","bm_fable"];
-function kvoice(p,partner){var v=KV[p.n];if(v)return v;var pool=p.v&&p.v.g==="f"?KF:KM,i=hsh(p.n)%pool.length;v=pool[i];if(partner&&kvoice(partner)===v)v=pool[(i+1)%pool.length];return v}
+var VMAP=null,VUSED={};
+/* every person on the air gets their own voice: a unique Kokoro voice, then pitch-shifted variants once the voices run out */
+function buildVoices(){ensureCrews(CREWS.length);var people=[STUDIO.rex,STUDIO.ice];CREWS.forEach(function(c){people.push(c.rex,c.ice,c.sid)});
+ VMAP=VMAP||{};var all=KM.concat(KF),rates=[1,.9,1.1,.84,1.16];
+ people.forEach(function(p){if(!p||VMAP[p.n])return;var want=KV[p.n];if(want&&!VUSED[want+"|1"]){VMAP[p.n]={k:want,rt:1};VUSED[want+"|1"]=1;return}
+  var pool=(p.v&&p.v.g==="f")?KF.concat(KM):KM.concat(KF),start=hsh(p.n)%pool.length;
+  for(var r=0;r<rates.length;r++)for(var n=0;n<pool.length;n++){var v=pool[(start+n)%pool.length],key=v+"|"+rates[r];if(!VUSED[key]){VUSED[key]=1;VMAP[p.n]={k:v,rt:rates[r]};return}}
+  VMAP[p.n]={k:pool[start],rt:1}})}
+function kvoice(p){if(!VMAP||!VMAP[p.n])buildVoices();return (VMAP[p.n]||{k:"am_michael",rt:1})}
 var HD={st:"off",w:null,n:0,cb:{},cache:{},dev:"",pct:0};
 var HD_SRC='import{KokoroTTS}from"https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm";let t;self.onmessage=async e=>{const m=e.data;'+
  'if(m.type==="load"){for(const o of m.opts){try{t=await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:o.dtype,device:o.device,progress_callback:p=>{if(p.status==="progress"&&/onnx/.test(p.file||""))self.postMessage({type:"progress",p:p.progress})}});self.postMessage({type:"ready",dev:o.device});return}catch(err){self.postMessage({type:"warn",msg:String(err)})}}self.postMessage({type:"error"});return}'+
@@ -668,7 +714,8 @@ function hdLoad(){
 function hdLine(l){
  var p=CREW[l.w],other=CREW[l.w==="rex"?"ice":"rex"],key=(l.key||l.t)+"|"+p.n;if(HD.cache[key])return HD.cache[key];
  var speed=(l.w==="rex"?1.08:0.98)*(l.h?1.06:1);
- return HD.cache[key]=new Promise(function(res){var id=++HD.n;HD.cb[id]=res;HD.w.postMessage({type:"gen",id:id,text:l.t.replace(/[“”]/g,'"'),voice:kvoice(p,other),speed:speed})})}
+ var kv=kvoice(p);
+ return HD.cache[key]=new Promise(function(res){var id=++HD.n;HD.cb[id]=function(u){res(u?{url:u,rt:kv.rt}:null)};HD.w.postMessage({type:"gen",id:id,text:l.t.replace(/[“”]/g,'"'),voice:kv.k,speed:speed})})}
 function hdPrefetch(){if(HD.st!=="ready")return;for(var i=bpI;i<Math.min(bpQ.length,bpI+3);i++)hdLine(bpQ[i])}
 function hdUI(){var b=$("#bpHD");if(!b)return;var t=b.querySelector("span");
  b.setAttribute("aria-pressed",HD.st==="ready");b.disabled=HD.st==="loading";
@@ -683,6 +730,41 @@ function ambience(on){try{
  else if(!on&&AMB){AMB.ctx.close();AMB=null}}catch(_){}}
 function swell(){if(!AMB)return;var t=AMB.ctx.currentTime;AMB.g.gain.cancelScheduledValues(t);AMB.g.gain.setValueAtTime(.05,t);AMB.g.gain.linearRampToValueAtTime(.16,t+.4);AMB.g.gain.linearRampToValueAtTime(.05,t+3.5)}
 var bpAudio=null;
+
+/* ---------- live scores straight from ESPN's public scoreboard (CORS-enabled), every ~20 seconds ---------- */
+var LV={ids:{},last:{},on:false};
+var LVL=[["NFL","football/nfl","",20e3],["CFB","football/college-football","?groups=80&limit=300",30e3],["NBA","basketball/nba","",20e3],["CBB","basketball/mens-college-basketball","?groups=50&limit=400",45e3]];
+var ESPN="https://site.api.espn.com/apis/site/v2/sports/";
+function lvStatus(ev,lg){var t=(ev.status||{}).type||{},st=ev.status||{};if(t.name==="STATUS_HALFTIME")return "HALFTIME";if(t.state!=="in")return null;var c=String(st.displayClock||"").replace(/^0(\d:)/,"$1"),q=+st.period||0;
+ if(lg==="NFL"||lg==="CFB")return "LIVE "+(q>4?"OT":"Q"+q)+" "+c;return "LIVE "+c}
+function lvRow(ev,lg){var comp=(ev.competitions||[])[0]||{},cs=comp.competitors||[],h=cs.filter(function(c){return c.homeAway==="home"})[0],a=cs.filter(function(c){return c.homeAway==="away"})[0];if(!h||!a)return null;
+ var t=(ev.status||{}).type||{},recent=t.state==="post"&&(Date.now()-new Date(ev.date))<6*3600e3;if(t.state!=="in"&&t.name!=="STATUS_HALFTIME"&&!recent)return null;
+ var ta=a.team||{},th=h.team||{},r={lg:lg,a:ta.abbreviation,h:th.abbreviation,as:+a.score||0,hs:+h.score||0,an:ta.displayName,hn:th.displayName};
+ var st=lvStatus(ev,lg);if(st)r.st=st;
+ [["a",a],["h",h]].forEach(function(x){var tm=x[1].team||{};if(tm.logo)r[x[0]+"lg"]=tm.logo;if(tm.color)r[x[0]+"c"]="#"+tm.color;if(tm.alternateColor)r[x[0]+"c2"]="#"+tm.alternateColor;(x[1].records||[]).forEach(function(rc){if(rc.type==="total")r[x[0]+"r"]=rc.summary})});
+ LV.ids[(lg+"-"+r.a+"-"+r.h).toLowerCase().replace(/[^a-z0-9-]/g,"")]={id:ev.id,path:LVL.filter(function(z){return z[0]===lg})[0][1],lg:lg};return r}
+var LVROWS={};
+function lvPoll(L){if(document.hidden){setTimeout(function(){lvPoll(L)},L[3]);return}
+ fetch(ESPN+L[1]+"/scoreboard"+L[2],{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
+  var rows=[];(d.events||[]).forEach(function(ev){var r=lvRow(ev,L[0]);if(r)rows.push(r)});LVROWS[L[0]]=rows;
+  var all=[];Object.keys(LVROWS).forEach(function(k){all=all.concat(LVROWS[k])});
+  if(window.VaultLive)VaultLive.push({updatedAt:new Date().toISOString(),src:"ESPN live",games:all});
+  all.forEach(function(r){var id=(r.lg+"-"+r.a+"-"+r.h).toLowerCase().replace(/[^a-z0-9-]/g,""),e=PL&&PL.games&&PL.games[id];if(e){e.as=r.as;e.hs=r.hs;e.st=r.st||"FINAL"}});
+  var live=rows.some(function(r){return r.st});setTimeout(function(){lvPoll(L)},live?L[3]:Math.max(L[3],120e3))}).catch(function(){setTimeout(function(){lvPoll(L)},60e3)})}
+function lvStart(){if(LV.on||!window.fetch)return;LV.on=true;LVL.forEach(function(L,i){setTimeout(function(){lvPoll(L)},1500+i*700)})}
+/* the Booth's game: pull its play-by-play every ~12 seconds so the crew calls plays almost as they happen */
+function lvBoothTick(){setTimeout(lvBoothTick,12e3);if(!BP||BP.hidden||document.hidden||!bpSel||bpSel==="studio")return;var m=LV.ids[bpSel];if(!m)return;
+ fetch(ESPN+m.path+"/summary?event="+m.id,{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(s){
+  var fb=m.lg==="NFL"||m.lg==="CFB",rp=[],comp=((s.header||{}).competitions||[])[0]||{},ab={};(comp.competitors||[]).forEach(function(c){ab[String((c.team||{}).id)]=(c.team||{}).abbreviation});
+  if(fb){var dr=s.drives||{},dl=(dr.previous||[]).concat(dr.current?[dr.current]:[]),seen={};dl.forEach(function(d){(d.plays||[]).forEach(function(p){if(seen[p.id])return;seen[p.id]=1;var st=p.start||{},off=String(((st.team||{}).id)||((d.team||{}).id));
+    rp.push({id:String(p.id),t:(((p.period||{}).number>4)?"OT":"Q"+(p.period||{}).number)+" "+((p.clock||{}).displayValue||""),dd:st.downDistanceText||"",ty:(p.type||{}).text||"",tx:String(p.text||"").replace(/^\(\d{1,2}:\d{2}\)\s*/,"").replace(/^(?:\([^)]*\)\s*|(?:No Huddle-)?Shotgun\s+|No Huddle\s+)+/,"").slice(0,260),yd:+p.statYardage||0,off:ab[off]||"",sc:!!p.scoringPlay,sa:+p.awayScore||0,sh:+p.homeScore||0})})});rp=rp.slice(-14)}
+  else{(s.plays||[]).slice(-24).forEach(function(p){var n=(p.period||{}).number||1;rp.push({id:String(p.id),t:(m.lg==="CBB"?(n<=2?"H"+n:"OT"+(n-2)):(n<=4?"Q"+n:"OT"+(n-4)))+" "+((p.clock||{}).displayValue||""),ty:(p.type||{}).text||"",tx:String(p.text||"").slice(0,200),tm:ab[String((p.team||{}).id)]||"",sc:!!p.scoringPlay,v:+p.scoreValue||0,sa:+p.awayScore||0,sh:+p.homeScore||0})})}
+  if(!PL)PL={games:{}};var e=PL.games[bpSel];if(!e){var g=bpCurGame();if(!g)return;e=PL.games[bpSel]={lg:g.lg,a:g.a,h:g.h,an:nm(g,"a"),hn:nm(g,"h"),plays:[]}}
+  var old=(e.rp||[]).map(function(x){return x.id}).join();
+  /* keep calls already queued: merge new snaps onto the end */
+  var have={};(e.rp||[]).forEach(function(x){have[x.id]=1});e.rp=(e.rp||[]).concat(rp.filter(function(x){return !have[x.id]})).slice(-30);
+  var last=rp[rp.length-1];if(last){e.as=last.sa;e.hs=last.sh}
+  if(e.rp.map(function(x){return x.id}).join()!==old)bpRefresh()}).catch(function(){})}
 
 /* ---------- THE BOOTH page (#booth): see and hear Rex & Dante ---------- */
 var BP=null,bpSel=null,bpQ=[],bpI=0,bpT=null,bpSound=false,bpPlaying=true,bpVoices=null,bpSeenKeys={};
@@ -780,8 +862,8 @@ function buildBooth(){
  BP.addEventListener("click",function(e){
   var c=e.target.closest("[data-bp]");if(c){bpSel=c.getAttribute("data-bp");bpStart(true);return}
   if(e.target.closest("#bpHD")){if(HD.st==="off"||HD.st==="error"){HD.st="off";hdLoad()}if(!bpSound)$("#bpSound").click();return}
-  if(e.target.closest("#bpSound")){bpSound=!bpSound;ambience(bpSound);var b=$("#bpSound");b.setAttribute("aria-pressed",bpSound);b.querySelector("span").textContent=bpSound?"Sound on":"Listen live";if(!bpSound&&window.speechSynthesis)speechSynthesis.cancel();else{bpPlaying=true;$("#bpPlay").textContent="Pause";bpStart(false)}return}
-  if(e.target.closest("#bpPlay")){bpPlaying=!bpPlaying;$("#bpPlay").textContent=bpPlaying?"Pause":"Play";$("#bpPlay").setAttribute("aria-pressed",bpPlaying);if(!bpPlaying){clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpAudio)bpAudio.pause();talk(null)}else bpNext()}});
+  if(e.target.closest("#bpSound")){bpSound=!bpSound;ambience(bpSound);var cn=navigator.connection||{};if(bpSound&&HD.st==="off"&&!cn.saveData&&cn.type!=="cellular"&&!/2g|3g/.test(cn.effectiveType||""))hdLoad();var b=$("#bpSound");b.setAttribute("aria-pressed",bpSound);b.querySelector("span").textContent=bpSound?"Sound on":"Listen live";if(!bpSound&&window.speechSynthesis)speechSynthesis.cancel();else{bpPlaying=true;$("#bpPlay").textContent="Pause";bpStart(false)}return}
+  if(e.target.closest("#bpPlay")){bpPlaying=!bpPlaying;$("#bpPlay").textContent=bpPlaying?"Pause":"Play";$("#bpPlay").setAttribute("aria-pressed",bpPlaying);if(!bpPlaying){clearTimeout(bpT);clearInterval(bpType);bpTok++;if(window.speechSynthesis)speechSynthesis.cancel();if(bpAudio)bpAudio.pause();talk(null)}else bpNext()}});
  if(!("speechSynthesis" in window)&&!hdSupported())$("#bpSound").hidden=true;if(!hdSupported())$("#bpHD").hidden=true;hdUI();
 }
 function crewCards(g){var id=gid(g);setCrew(id);
@@ -790,20 +872,32 @@ function crewCards(g){var id=gid(g);setCrew(id);
  '<div class="bth-card"><div class="bth-av">'+avatar("ice")+'</div><div><b>'+esc(CREW.ice.n)+'</b><small>Analyst</small><p>Brings the color: what the play means and why it mattered.</p></div></div>'+
  '<p class="bth-n">'+esc(CREW.rex.f)+' and '+esc(CREW.ice.f)+' are virtual announcers, not real people. Each VAULT game has its own two-person crew. Calls are written automatically from ESPN’s public play-by-play; every name, yard and score is real. Voices come from your device.</p>'}
 var bpScenedFor=null;
-function bpScene(g){var id=gid(g);if(bpScenedFor===id)return;bpScenedFor=id;setCrew(id);var sc=$("#bpScene");if(sc)sc.innerHTML=boothSVG(g);var cr=$("#bpCrew");if(cr)cr.innerHTML=crewCards(g);
+function bpScene(g){var id=gid(g);if(bpScenedFor===id&&bpSel!=="studio")return;bpScenedFor=id;setCrew(id);var sc=$("#bpScene");if(sc)sc.innerHTML=boothSVG(g);var cr=$("#bpCrew");if(cr)cr.innerHTML=crewCards(g);
  BP.style.setProperty("--b1",tcol(g.lg,g.a));BP.style.setProperty("--b2",tcol(g.lg,g.h));bpVoices=null}
 function bpCurGame(){var l=bpGames();var g=null;l.forEach(function(x){if(gid(x)===bpSel)g=x});if(!g){g=l.filter(isLive).sort(function(x,y){return pr(x)-pr(y)})[0]||l[0];bpSel=g?gid(g):null}return g}
-function bpChips(){assignCrews();var box=$("#bpGames"),sl=box.scrollLeft,l=bpGames();box.innerHTML=l.slice(0,16).map(function(g){var id=gid(g);return '<button type="button" role="tab" class="bth-chip'+(isLive(g)?" live":"")+'" data-bp="'+esc(id)+'" aria-selected="'+(id===bpSel)+'" aria-pressed="'+(id===bpSel)+'"><em>'+(isLive(g)?'<i></i>':"")+esc(g.lg)+" · "+esc(clock(g))+'</em><span class="bt-sc">'+logoImg(g.lg,g.a,"sm",40)+esc(g.a)+" "+esc(g.as)+'<s>·</s>'+logoImg(g.lg,g.h,"sm",40)+esc(g.h)+" "+esc(g.hs)+'</span><small>🎙 '+esc(crewNames(id))+'</small></button>'}).join("");box.scrollLeft=sl}
+function bpChips(){assignCrews();var box=$("#bpGames"),sl=box.scrollLeft,l=bpGames();box.innerHTML='<button type="button" role="tab" class="bth-chip studio" data-bp="studio" aria-selected="'+(bpSel==="studio")+'" aria-pressed="'+(bpSel==="studio")+'"><em><i></i>VAULT studio</em><span class="bt-sc">Whip-Around</span><small>🎙 Avery & Sato</small></button>'+l.slice(0,16).map(function(g){var id=gid(g);return '<button type="button" role="tab" class="bth-chip'+(isLive(g)?" live":"")+'" data-bp="'+esc(id)+'" aria-selected="'+(id===bpSel)+'" aria-pressed="'+(id===bpSel)+'"><em>'+(isLive(g)?'<i></i>':"")+esc(g.lg)+" · "+esc(clock(g))+'</em><span class="bt-sc">'+logoImg(g.lg,g.a,"sm",40)+esc(g.a)+" "+esc(g.as)+'<s>·</s>'+logoImg(g.lg,g.h,"sm",40)+esc(g.h)+" "+esc(g.hs)+'</span><small>🎙 '+esc(crewNames(id))+'</small></button>'}).join("");box.scrollLeft=sl}
 function bpMon(g){if(!g)return;var t=$("#bsScore");if(t)t.textContent=g.a+" "+g.as+" – "+g.h+" "+g.hs;var c=$("#bsClock");if(c)c.textContent=clock(g);var a=$("#jbA"),h=$("#jbH");if(a)a.textContent=g.as;if(h)h.textContent=g.hs}
 function bpTranscript(g){var ls=bpLines(g).slice().reverse();$("#bpTr").innerHTML=ls.map(function(l){return lineHTML(l,false)}).join("")}
-function bpStart(fromStart){var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);bpQ=bpLines(g);bpI=fromStart||!bpSeenKeys[bpSel]?0:Math.max(0,bpQ.length-4);bpSeenKeys[bpSel]={};bpQ.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpAudio)bpAudio.pause();if(bpPlaying)bpNext()}
+function studioStart(){bpScenedFor="studio";CREW={rex:STUDIO.rex,ice:STUDIO.ice,sid:STUDIO.ice};var sc=$("#bpScene");if(sc)sc.innerHTML=boothSVG({lg:"",a:"",h:""});
+ var cr=$("#bpCrew");if(cr)cr.innerHTML='<h2>The VAULT studio</h2><p class="bth-mu">Whip-Around: every live game, one show</p>'+
+  '<div class="bth-card"><div class="bth-av">'+avatar("rex")+'</div><div><b>'+esc(STUDIO.rex.n)+'</b><small>Studio host</small><p>Takes you to every live game the moment something happens.</p></div></div>'+
+  '<div class="bth-card"><div class="bth-av">'+avatar("ice")+'</div><div><b>'+esc(STUDIO.ice.n)+'</b><small>VAULT insider</small><p>The play that mattered in each game, and why.</p></div></div>'+
+  '<p class="bth-n">Jordan and Kim are fictional VAULT reporters, not real people. Every score and play they mention comes from ESPN’s public data.</p>';
+ BP.style.setProperty("--b1","#facc15");BP.style.setProperty("--b2","#2563eb");var t=$("#bsScore");if(t)t.textContent="WHIP-AROUND";var c=$("#bsClock");if(c)c.textContent=games().filter(isLive).length+" LIVE";
+ bpChips();bpQ=studioLines(0);bpI=0;$("#bpTr").innerHTML=bpQ.slice().reverse().map(function(l){return lineHTML(l,false)}).join("");
+ clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpAudio)bpAudio.pause();if(bpPlaying)bpNext()}
+function bpStart(fromStart){if(bpSel==="studio"){studioStart();return}var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);bpQ=bpLines(g);bpI=fromStart||!bpSeenKeys[bpSel]?0:Math.max(0,bpQ.length-4);bpSeenKeys[bpSel]={};bpQ.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpAudio)bpAudio.pause();if(bpPlaying)bpNext()}
 function talk(w){["annRex","annIce"].forEach(function(id){var el=document.getElementById(id);if(el){el.classList.toggle("talk",(w==="rex"&&id==="annRex")||(w==="ice"&&id==="annIce"));el.classList.toggle("look",!!w&&!((w==="rex"&&id==="annRex")||(w==="ice"&&id==="annIce")))}})}
 var FEM=/female|samantha|victoria|karen|moira|tessa|fiona|serena|susan|zira|aria|jenny|ava|allison|kate|martha|nicky|catherine|libby|sonia|michelle|emma|olivia|google uk english female|google us english/i,
  MAL=/male|daniel|alex|fred|guy|matthew|davis|aaron|arthur|tom|eric|ryan|christopher|rishi|lee|oliver|gordon|reed|rocko|ralph|evan|nathan|thomas|george|james|brian|roger|andrew|tony|google uk english male/i;
-function pickVoices(){if(bpVoices)return bpVoices;var v=(window.speechSynthesis&&speechSynthesis.getVoices()||[]).filter(function(x){return /^en/i.test(x.lang)});if(!v.length)return null;
- var used=[];function choose(p){var pool=v.filter(function(x){return p.v.g==="f"?FEM.test(x.name)&&!/male\b/i.test(x.name.replace(/female/i,"")):MAL.test(x.name)&&!/female/i.test(x.name)});if(!pool.length)pool=v;
-  var free=pool.filter(function(x){return used.indexOf(x)<0});var c=(free.length?free:pool)[hsh(p.n)%(free.length?free:pool).length];used.push(c);return c}
- bpVoices={rex:choose(CREW.rex),ice:choose(CREW.ice)};return bpVoices}
+var DVMAP={};
+function pickVoices(){var v=(window.speechSynthesis&&speechSynthesis.getVoices()||[]).filter(function(x){return /^en/i.test(x.lang)});if(!v.length)return null;
+ if(!pickVoices.n||pickVoices.n!==v.length){pickVoices.n=v.length;DVMAP={};var people=[STUDIO.rex,STUDIO.ice];ensureCrews(CREWS.length);CREWS.forEach(function(c){people.push(c.rex,c.ice,c.sid)});
+  var used={},pitches=[1,.8,1.2,.7,1.3,.9,1.1];
+  people.forEach(function(p){if(!p||DVMAP[p.n])return;var f=p.v&&p.v.g==="f",pool=v.filter(function(x){return f?FEM.test(x.name)&&!/\bmale\b/i.test(x.name):MAL.test(x.name)&&!/female/i.test(x.name)});if(!pool.length)pool=v;
+   var st=hsh(p.n)%pool.length;for(var q=0;q<pitches.length;q++)for(var n=0;n<pool.length;n++){var c=pool[(st+n)%pool.length],key=c.name+"|"+pitches[q];if(!used[key]){used[key]=1;DVMAP[p.n]={voice:c,pitch:(p.v&&p.v.p||1)*pitches[q]};return}}
+   DVMAP[p.n]={voice:pool[st],pitch:p.v&&p.v.p||1}})}
+ return {rex:DVMAP[CREW.rex.n],ice:DVMAP[CREW.ice.n],sid:DVMAP[CREW.sid&&CREW.sid.n]}}
 var bpBan=0;
 function banter(e,g,n){
  var A=nick(e.an),H=nick(e.hn),out=[],lv=/LIVE|HALF/.test(e.st||""),k=gid(g)+"|"+n,S=scoreLine(e,e.as,e.hs);
@@ -817,18 +911,31 @@ function banter(e,g,n){
  if(hls.length)opts.push(function(){var x=hls[hls.length-1];out.push({w:"rex",t:"Let's go back to that one. "+x.x});out.push({w:"ice",t:pick(["Watch it again and you see the whole thing develop. Beautiful.","That's the play people will be talking about tomorrow.","You can't teach that, "+CREW.rex.f+"."],k+"h")})});
  if(g.ar&&g.hr)opts.push(function(){out.push({w:"rex",t:"The "+A+" came in at "+g.ar+", the "+H+" at "+g.hr+"."});out.push({w:"ice",t:pick(["Records go out the window in a game like this.","You'd never know it from the way they're playing tonight.","Both teams know what's at stake."],k+"r")})});
  opts[n%opts.length]();out.forEach(function(l,i){l.key="ban|"+n+"|"+i});return out}
+var bpType=null,bpTok=0;
+/* text appears exactly when the voice starts, and is revealed at the speed it's spoken */
+function sayReveal(txt,ms){var say=$("#bpSay"),t0=performance.now();clearInterval(bpType);if(RM||ms<=0){say.textContent=txt;return}
+ bpType=setInterval(function(){var f=Math.min(1,(performance.now()-t0)/ms);say.textContent=txt.slice(0,Math.ceil(txt.length*f));if(f>=1)clearInterval(bpType)},30)}
 function bpNext(){
  clearTimeout(bpT);if(!BP||BP.hidden||!bpPlaying)return;if(!bpQ.length)return;
- if(bpI>=bpQ.length){var g0=bpCurGame();bpBan=(bpBan||0)+1;banter(bpEntry(g0),g0,bpBan).forEach(function(l){bpQ.push(l)})}
- var l=bpQ[bpI++],p=CREW[l.w];$("#bpWho").innerHTML='<b>'+esc(p.n)+'</b><span>'+esc(p.r)+(l.when?" · "+esc(l.when):"")+'</span>';
- var say=$("#bpSay");say.className=l.h?"hype":"";say.textContent="";var txt=l.t,k=0;talk(l.w);
- (function type(){if(k<=txt.length){say.textContent=txt.slice(0,k);k+=2;bpT=setTimeout(type,RM?0:22)}})();
- var done=function(){talk(null);bpT=setTimeout(bpNext,l.w==="rex"?450:700)};if(l.h&&bpSound)swell();
- if(bpSound&&HD.st==="ready"){var cur=bpSel;hdPrefetch();hdLine(l).then(function(url){if(cur!==bpSel||!bpPlaying)return;if(!url){done();return}
-   if(bpAudio)bpAudio.pause();bpAudio=new Audio(url);bpAudio.onended=function(){clearTimeout(bpT);done()};bpAudio.onerror=function(){done()};var pr0=bpAudio.play();if(pr0&&pr0.catch)pr0.catch(function(){done()});hdPrefetch()});return}
- if(bpSound&&window.speechSynthesis){var u=new SpeechSynthesisUtterance(txt),vv=pickVoices();if(vv)u.voice=vv[l.w];var pv=CREW[l.w].v||{p:1,r:1};u.pitch=pv.p;u.rate=pv.r*(l.h?1.08:1);u.onend=function(){clearTimeout(bpT);done()};u.onerror=function(){clearTimeout(bpT);setTimeout(done,txt.length*55)};speechSynthesis.speak(u)}
- else setTimeout(function(){if(bpPlaying)done()},Math.max(2600,txt.length*58))}
-function bpRefresh(){if(!BP||BP.hidden)return;var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);var fresh=bpLines(g).filter(function(l){return !(bpSeenKeys[bpSel]||{})[l.key]});if(fresh.length){fresh.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});bpQ=bpLines(g);bpI=bpQ.length-fresh.length;}}
+ if(bpI>=bpQ.length){bpBan=(bpBan||0)+1;if(bpSel==="studio"){studioLines(bpBan).forEach(function(l){bpQ.push(l)})}else{var g0=bpCurGame(),e0=bpEntry(g0),xs=bpBan%3===0?sideline(e0,g0,bpBan):[];(xs.length?xs:banter(e0,g0,bpBan)).forEach(function(l){bpQ.push(l)})}}
+ var l=bpQ[bpI++],p=CREW[l.w]||CREW.rex,txt=l.t,tok=++bpTok,cur=bpSel;
+ var start=function(){if(tok!==bpTok)return;$("#bpWho").innerHTML=(l.w==="sid"?'<i class="bth-pip">'+avatar("sid")+'</i>':"")+'<b>'+esc(p.n)+'</b><span>'+esc(p.r)+(l.when?" · "+esc(l.when):"")+'</span>';
+  var say=$("#bpSay");say.className=l.h?"hype":"";say.textContent="";talk(l.w);if(l.h&&bpSound)swell()};
+ var done=function(){if(tok!==bpTok)return;clearInterval(bpType);$("#bpSay").textContent=txt;talk(null);bpT=setTimeout(bpNext,l.w==="rex"?250:400)};
+ if(bpSound&&HD.st==="ready"){hdPrefetch();$("#bpCap").classList.add("wait");
+  hdLine(l).then(function(r){if(tok!==bpTok||cur!==bpSel||!bpPlaying)return;$("#bpCap").classList.remove("wait");if(!r){speakDevice();return}
+   if(bpAudio)bpAudio.pause();var a=bpAudio=new Audio(r.url);if(r.rt!==1){a.preservesPitch=false;a.mozPreservesPitch=false;a.webkitPreservesPitch=false;a.playbackRate=r.rt}
+   a.onplaying=function(){start();sayReveal(txt,(a.duration||txt.length/14)/(r.rt||1)*1000*.92)};a.onended=done;a.onerror=function(){start();sayReveal(txt,0);setTimeout(done,txt.length*55)};
+   var pr0=a.play();if(pr0&&pr0.catch)pr0.catch(function(){start();sayReveal(txt,0);setTimeout(done,txt.length*55)});hdPrefetch()});return}
+ if(bpSound&&window.speechSynthesis){speakDevice();return}
+ start();sayReveal(txt,txt.length*38);bpT=setTimeout(function(){if(bpPlaying)done()},Math.max(2400,txt.length*58));
+ function speakDevice(){var u=new SpeechSynthesisUtterance(txt),vv=pickVoices(),dv=vv&&vv[l.w],pv=p.v||{p:1,r:1},began=false;if(dv&&dv.voice)u.voice=dv.voice;
+  u.pitch=Math.max(.1,Math.min(2,dv?dv.pitch:pv.p));u.rate=pv.r*(l.h?1.08:1);
+  u.onstart=function(){began=true;start();sayReveal(txt,txt.length*62/u.rate)};
+  u.onboundary=function(ev){if(tok!==bpTok||ev.charIndex==null)return;clearInterval(bpType);var end=txt.indexOf(" ",ev.charIndex+(ev.charLength||1));$("#bpSay").textContent=txt.slice(0,end<0?txt.length:end)};
+  u.onend=done;u.onerror=function(){if(!began){start();sayReveal(txt,0)}setTimeout(done,txt.length*50)};
+  speechSynthesis.speak(u);setTimeout(function(){if(!began&&tok===bpTok){began=true;start();sayReveal(txt,txt.length*60)}},900)}}
+function bpRefresh(){if(!BP||BP.hidden)return;if(bpSel==="studio"){bpChips();return}var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);var fresh=bpLines(g).filter(function(l){return !(bpSeenKeys[bpSel]||{})[l.key]});if(fresh.length){fresh.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});bpQ=bpLines(g);bpI=bpQ.length-fresh.length;}}
 function boothRoute(){
  var on=(location.hash||"").slice(1)==="booth";if(!BP)buildBooth();
  var view=$("#view");BP.hidden=!on;view.style.display=on?"none":"";if(AR&&on)AR.hidden=true;
@@ -849,7 +956,7 @@ function boot(){
  if(!RM)document.documentElement.classList.add("fx-anim");build();tick();decorate();bottomLine();reveal();flyIn();if(AR&&RM)AR.classList.add("settled");
  var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();booth();gamePage();reveal();fightCard(false);if((location.hash||"")==="#highlights"&&document.getElementById("hlGrid")&&!document.getElementById("hlGrid").children.length)window.VHL.after()});mo.observe(v,{childList:true})}
  setInterval(tick,1000);
- loadPlays();setInterval(function(){if(!document.hidden)loadPlays()},15000);loadUFC();setInterval(function(){if(!document.hidden)loadUFC()},60000);
+ loadPlays();setInterval(function(){if(!document.hidden)loadPlays()},15000);lvStart();setTimeout(lvBoothTick,4000);loadUFC();setInterval(function(){if(!document.hidden)loadUFC()},60000);
  window.addEventListener("hashchange",function(){gpFilter="all";render(true);boothRoute();setTimeout(function(){booth();gamePage()},50)});boothRoute();var nv=$("#nav");if(nv){var nmo=new MutationObserver(function(){if(!nv.querySelector("a.bth-nav"))navLink()});nmo.observe(nv,{childList:true})}var dn=$("#drawerNav");if(dn){var dmo=new MutationObserver(function(){if(!dn.querySelector("a.bth-nav"))navLink()});dmo.observe(dn,{childList:true})}window.addEventListener("scroll",function(){requestAnimationFrame(parallax)},{passive:true});if(window.speechSynthesis)speechSynthesis.onvoiceschanged=function(){bpVoices=null}}
 boot();
 }catch(err){if(window.console)console.warn("VAULT FX off:",err)}
