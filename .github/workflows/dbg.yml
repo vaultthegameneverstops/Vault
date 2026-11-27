@@ -1,0 +1,26 @@
+name: dbg
+on: push
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import json,urllib.request
+          def g(u): return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={"User-Agent":"Mozilla/5.0"})))
+          for path in ["football/nfl","football/college-football"]:
+            sb=g("https://site.api.espn.com/apis/site/v2/sports/"+path+"/scoreboard")
+            evs=[e for e in sb["events"] if e["status"]["type"]["state"]!="pre"]
+            print("PATH",path,[ (e["id"],e["shortName"],e["status"]["type"]["state"]) for e in sb["events"]][:20])
+            if not evs: continue
+            s=g("https://site.api.espn.com/apis/site/v2/sports/"+path+"/summary?event="+evs[0]["id"])
+            print("KEYS",list(s.keys()))
+            dr=s.get("drives",{})
+            print("DRIVEKEYS",list(dr.keys()))
+            d0=(dr.get("previous") or [dr.get("current")])[0]
+            print("DRIVE",json.dumps({k:v for k,v in d0.items() if k!="plays"})[:1500])
+            for p in d0["plays"][:4]: print("PLAY",json.dumps(p)[:1800])
+            bp=s["boxscore"]["players"][0]["statistics"][0]
+            print("BOXP",json.dumps(bp)[:900])
+            print("SCP",json.dumps((s.get("scoringPlays") or [{}])[0])[:900])
+          PY
