@@ -548,7 +548,11 @@ def live_wp(comp, g, h_id, st):
     if st in ("closed", "complete"):
         if g["as"] == g["hs"]:
             return {}
-        return {"wp": 100.0 if g["hs"] > g["as"] else 0.0, "wps": "final"}
+        out = {"wp": 100.0 if g["hs"] > g["as"] else 0.0, "wps": "final"}
+        line = wp_series(SUMMARIES[g["id"]]) if g["id"] in SUMMARIES else []
+        if len(line) > 1:
+            out["wpl"] = line
+        return out
     s = SUMMARIES.get(g["id"])
     if s:
         v, src = win_prob(s, h_id)
