@@ -70,6 +70,7 @@ def parse_scoring(line, a, h):
         sc = {m2.group(1): int(m2.group(2)), m2.group(4): int(m2.group(3))}
         x = x[: m2.start()].strip()
     u = x.upper()
+    x = re.sub(r"\s*\[[^\]]*\]\s*$", "", x)  # ESPN play-type tag, used only to classify
     if "TOUCHDOWN" in u:
         k, big = "td", True
     elif "SAFETY" in u:
@@ -83,6 +84,19 @@ def parse_scoring(line, a, h):
     else:
         k, big = "score", False
     return t, x, sc, k, big
+
+
+def headline(h):
+    yd = h.get("yd", 0)
+    if h["ty"] == "pass" and h.get("qb") and h.get("rc"):
+        return "%s to %s for %d yards%s." % (h["qb"], h["rc"], yd, ", TOUCHDOWN" if h.get("td") else "")
+    if h["ty"] in ("rush", "ret") and h.get("by"):
+        return "%s %s %d yards%s." % (h["by"], "breaks off" if h["ty"] == "rush" else "returns it", yd, " for the TOUCHDOWN" if h.get("td") else "")
+    if h["ty"] == "int":
+        return "INTERCEPTED%s%s." % (" by " + h["by"] if h.get("by") else "", " on a pass from " + h["qb"] if h.get("qb") else "")
+    if h["ty"] == "fum":
+        return "Fumble! %s take it away." % h["def"]
+    return h.get("txt", "Big play")
 
 
 def main():
@@ -154,8 +168,25 @@ def main():
                     last.update({kk: v for kk, v in sc.items() if kk in last})
                 add({"key": "s|" + line.strip(), "t": tt, "x": x, "tm": tm, "k": kind, "big": big,
                      "sa": sc.get(a), "sh": sc.get(h)})
+            # highlight plays with names + field spots (ESPN drives). Scoring highlights attach to the scoring row.
+            for hh in g.get("hl") or []:
+                tgt = None
+                if hh.get("td") or hh["ty"] == "ret":
+                    for it in pl:
+                        if it.get("t") == hh["t"] and it.get("k") in ("td", "sf") and not it.get("hl"):
+                            tgt = it
+                            break
+                if tgt is not None:
+                    tgt["hl"] = hh
+                    continue
+                tm = hh["def"] if hh["ty"] in ("int", "fum") else hh["off"]
+                add({"key": "hl|" + hh["id"], "t": hh["t"], "x": headline(hh), "tm": tm,
+                     "k": "to" if hh["ty"] in ("int", "fum") else ("td" if hh.get("td") else "big"),
+                     "big": True, "hl": hh})
             fs = g.get("fs")
             old = e.get("fs")
+            if "hl" in g:
+                old = None  # real highlights replace the team-stat guesses below
             if fs and old:
                 per = period(g, lg)
                 clk = re.sub(r"^0(\d:)", r"\1", str(g.get("clock") or ""))

@@ -860,3 +860,7 @@ html body .back{font:800 12px var(--sn-hd)!important;font-style:italic;text-tran
  html body .grid{grid-template-columns:minmax(0,1fr)}
 }
 @media (prefers-reduced-motion:reduce){html body .tk .lg .dot{animation:none}}
+
+/* original player-card jersey art (no real photos) */
+.art svg.ill.jersey{display:block!important;position:absolute;right:4%;top:7%;height:86%;width:auto;max-width:48%;z-index:2;filter:drop-shadow(0 12px 18px rgba(0,0,0,.6));transform:rotate(4deg);transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.card:hover .art svg.ill.jersey,.hero:hover .art svg.ill.jersey{transform:rotate(-2deg) scale(1.06)}

@@ -64,16 +64,18 @@ function flapTo(el,oldV,newV){
 var PL=null,plSig="",plSeen={},plBoot=Date.now(),lastBurst={};
 var KIND={td:"Touchdown",fg:"Field goal",xp:"Extra point","2pt":"2-pt try",sf:"Safety",to:"Turnover",big:"Big play",run:"Scoring run",score:"Score",half:"Halftime",final:"Final"};
 function plays(id){return PL&&PL.games&&PL.games[id]?PL.games[id].plays||[]:[]}
-function plRow(g,x){var c=x.tm?tcol(g.lg,x.tm):"#3a443f";return '<li class="pl'+(x.big?" big":"")+' k-'+esc(x.k)+'"><span class="pl-t">'+esc(x.t||"")+'</span><span class="pl-k" style="--tc:'+c+'">'+esc(KIND[x.k]||"Play")+(x.tm?" · "+esc(x.tm):"")+'</span><span class="pl-x">'+esc(x.x)+'</span></li>'}
+function plRow(g,x,o){var c=x.tm?tcol(g.lg,x.tm):"#3a443f",h=x.hl;o=o||{};
+ var fd=h&&o.fd&&football(g)?'<div class="pl-fd">'+miniField(g,h,!!o.anim)+'</div>':"";
+ return '<li class="pl'+(x.big?" big":"")+(h?" hl":"")+' k-'+esc(x.k)+'"><span class="pl-t">'+esc(x.t||"")+'</span><span class="pl-k" style="--tc:'+c+'">'+esc(KIND[x.k]||"Play")+(x.tm?" · "+esc(x.tm):"")+'</span>'+(h?'<span class="pl-hl">'+esc(hlTitle(h))+' <em>'+esc(hlSub(h))+'</em></span>':"")+(h&&String(x.key).indexOf("hl|")===0?"":'<span class="pl-x">'+esc(x.x)+'</span>')+fd+'</li>'}
 function loadPlays(){
  return fetch("plays.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
   var sig=JSON.stringify(d.games||{});if(sig===plSig)return;var first=!plSig;plSig=sig;PL=d;
   Object.keys(d.games||{}).forEach(function(id){var e=d.games[id];(e.plays||[]).forEach(function(x){var k=id+"|"+x.key;if(plSeen[k])return;plSeen[k]=1;if(!first&&Date.now()-plBoot>8000&&x.big)bigPlay(id,e,x)})});
-  render(false);gamePage();booth();bottomLine();bpRefresh();
+  render(false);gamePage();booth();bottomLine();bpRefresh();if((location.hash||"")==="#highlights")hlFill();
  }).catch(function(){})}
 var toastQ=[],toastOn=false;
 function bigPlay(id,e,x){
- var label=(KIND[x.k]||"Big play")+(x.tm?" · "+(x.tm===e.a?e.an:x.tm===e.h?e.hn:x.tm):"");
+ var label=x.hl?hlKind(x.hl)+" · "+hlTitle(x.hl):(KIND[x.k]||"Big play")+(x.tm?" · "+(x.tm===e.a?e.an:x.tm===e.h?e.hn:x.tm):"");
  if(id===sel&&AR&&!AR.hidden){lastBurst[id]=Date.now();burst(x.tm?tcol(e.lg,x.tm):"#ffb21a",label)}
  toastQ.push({id:id,e:e,x:x,label:label});if(!toastOn)nextToast()}
 function nextToast(){
@@ -94,9 +96,109 @@ function gamePage(){
  var extra="";
  if(e&&e.fs){extra='<div class="pt-st"><div><b>'+esc(e.fs.a.yds!=null?e.fs.a.yds:"–")+'</b>'+esc(e.a)+' total yards</div><div><b>'+esc(e.fs.h.yds!=null?e.fs.h.yds:"–")+'</b>'+esc(e.h)+' total yards</div><div><b>'+esc(e.fs.a.to||0)+'–'+esc(e.fs.h.to||0)+'</b>Turnovers '+esc(e.a)+'–'+esc(e.h)+'</div></div>'}
  if(e&&e.bs){extra='<div class="pt-st">'+["a","h"].map(function(k){var b=e.bs[k];return b?'<div><b>'+esc(b.pts)+'</b>'+esc(b.ld)+' leads '+esc(e[k])+'</div>':""}).join("")+'</div>'}
- box.innerHTML='<div class="pt-h"><h2>Play tracker</h2>'+(lv?'<span class="pt-live"><i></i>Live</span>':"")+'<div class="pt-f" role="group" aria-label="Filter plays"><button type="button" data-pf="all" aria-pressed="'+(gpFilter==="all")+'">All plays</button><button type="button" data-pf="big" aria-pressed="'+(gpFilter==="big")+'">Big plays</button></div></div>'+extra+
-  (shown.length?'<ol class="pls">'+shown.map(function(x){return plRow(g,x)}).join("")+'</ol>':'<p class="pt-e">'+(e?"No plays in this view yet.":"Plays show up here while VAULT is tracking this game live: scoring plays, turnovers, explosive gains and scoring runs.")+'</p>')+
-  '<p class="pt-n">Tracked from ESPN\u2019s public scoreboard, checked every 5 minutes. Football: every scoring play, plus turnovers and new longest gains as the team stats change. Basketball: scoring runs between updates and leading scorers. Times for turnovers, gains and runs are when VAULT spotted them.</p>'}
+ box.innerHTML='<div class="pt-h"><h2>Play tracker</h2>'+(lv?'<span class="pt-live"><i></i>Live</span>':"")+'<div class="pt-f" role="group" aria-label="Filter plays"><button type="button" data-pf="all" aria-pressed="'+(gpFilter==="all")+'">All plays</button><button type="button" data-pf="big" aria-pressed="'+(gpFilter==="big")+'">Big plays</button><a class="pt-hla" href="#highlights">All highlights</a></div></div>'+extra+
+  (shown.length?'<ol class="pls">'+shown.map(function(x,i){return plRow(g,x,{fd:true,anim:i<3})}).join("")+'</ol>':'<p class="pt-e">'+(e?"No plays in this view yet.":"Plays show up here while VAULT is tracking this game live: scoring plays, turnovers, explosive gains and scoring runs.")+'</p>')+
+  '<p class="pt-n">Tracked from ESPN\u2019s public scoreboard, checked every 5 minutes. Football: every scoring play, plus highlight plays (20+ yard passes, 15+ yard runs, takeaways, return scores) drawn on the field. Positions other than the passer, receiver and ball carrier are illustrative. Basketball: scoring runs between updates and leading scorers. Times for turnovers, gains and runs are when VAULT spotted them.</p>'}
+
+/* ---------- highlight plays drawn on the field (x.hl from plays.json) ---------- */
+var FX0=60,PX=6,HT=5.2;
+function fxX(y){return FX0+Math.max(0,Math.min(100,+y||0))*PX}
+function r1(n){return Math.round(n*10)/10}
+function hlTitle(h){if((h.ty==="pass")&&h.qb&&h.rc)return h.qb+" to "+h.rc;if(h.ty==="int")return h.by?h.by+" picks it off":"Interception";if(h.ty==="fum")return "Fumble · "+h.def+" ball";return h.by||h.off+" big play"}
+function hlSub(h){var y=Math.abs(h.yd||0),s=h.ty==="pass"?y+"-yard pass":h.ty==="rush"?y+"-yard run":h.ty==="ret"?y+"-yard return":h.ty==="int"?(h.qb?"Thrown by "+h.qb:"Takeaway"):"Takeaway";return s+(h.td?" · Touchdown":"")}
+function hlKind(h){return h.td?"Touchdown":h.ty==="int"||h.ty==="fum"?"Turnover":"Big play"}
+function seg(p){var L=[0],t=0;for(var i=1;i<p.length;i++){t+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);L.push(t)}return{L:L,t:t||1}}
+function rel(p){var o=p[0];return "M0,0 "+p.slice(1).map(function(q){return "L"+r1(q[0]-o[0])+","+r1(q[1]-o[1])}).join(" ")}
+function abs(p){return "M"+p.map(function(q){return r1(q[0])+","+r1(q[1])}).join(" L")}
+function arc(a,b,lift,n){var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2-lift,o=[];for(var i=0;i<=n;i++){var t=i/n,u=1-t;o.push([u*u*a[0]+2*u*t*mx+t*t*b[0],u*u*a[1]+2*u*t*my+t*t*b[1]])}return o}
+/* timeline (fractions of HT): .14 snap · .40 throw/handoff · .64 catch · .88 whistle */
+function motion(p,times,anim){
+ if(!anim||p.length<2)return "";var s=seg(p),pts=times.map(function(k){return k[1]});
+ var kp=[],kt=[];times.forEach(function(k){kt.push(k[0]);kp.push(r1(s.L[Math.min(k[1],p.length-1)]/s.t*1000)/1000)});
+ return '<animateMotion dur="'+HT+'s" repeatCount="indefinite" calcMode="linear" path="'+rel(p)+'" keyTimes="'+kt.join(";")+'" keyPoints="'+kp.join(";")+'"/>'}
+function piece(x,y,c,cls,mv,lab){return '<g class="hp-pc'+(cls?" "+cls:"")+'" transform="translate('+r1(x)+' '+r1(y)+')"><ellipse class="hp-sh" cx="2" cy="3" rx="9.5" ry="7"/><circle r="'+(cls&&/key/.test(cls)?10.5:8)+'" fill="'+c+'"/>'+(lab?'<text y="3.5">'+esc(lab)+'</text>':"")+(mv||"")+'</g>'}
+function simple(x0,y0,x1,y1,anim,t0,t1){return anim?'<animateMotion dur="'+HT+'s" repeatCount="indefinite" calcMode="linear" path="M0,0 L'+r1(x1-x0)+','+r1(y1-y0)+'" keyTimes="0;'+t0+';'+t1+';1" keyPoints="0;0;1;1"/>':""}
+function initials(n){n=String(n||"");var w=n.replace(/\./g," ").split(/\s+/).filter(Boolean);return w.length>1?(w[0][0]+w[w.length-1][0]).toUpperCase():n.slice(0,2).toUpperCase()}
+function playSVG(g,h,anim){
+ if(!h||h.s==null)return "";anim=anim&&!RM;
+ var dir=h.off===g.a?1:-1,D=dir*PX,cy=180,s=fxX(h.s),e=fxX(h.e!=null?h.e:h.s),yL=cy+(h.ln||0)*dir*92;
+ var co=tcol(g.lg,h.off),cd=tcol(g.lg,h.def),o="",i;
+ var OL=[-26,-13,0,13,26].map(function(dy){return[s-D,cy+dy]}),QB=[s-D*5,cy],RB=[s-D*7,cy+16],TE=[s-D*1.4,cy+40];
+ var WR=[[s-D,cy-118],[s-D,cy+118],[s-D*1.2,cy-78]];
+ var DL=[-33,-11,11,33].map(function(dy){return[s+D*1.4,cy+dy]}),LB=[-44,0,44].map(function(dy){return[s+D*5,cy+dy]}),CB=[[s+D*7,cy-116],[s+D*7,cy+116]],SF=[[s+D*14,cy-56],[s+D*14,cy+56]];
+ var key,keyP,ball,end,ret=h.ty==="ret";
+ if(h.ty==="pass"||h.ty==="int"){
+  var w=0,bd=1e9;WR.forEach(function(p,k){var d=Math.abs(p[1]-yL);if(d<bd){bd=d;w=k}});
+  var air=h.ty==="int"?Math.min(Math.max(12,Math.abs(h.e-h.s)*.5),30):Math.max(6,Math.abs(h.yd||0)*.72);
+  var c=[s+D*air,yL+(h.ln?0:(WR[w][1]<cy?-20:20))];
+  var qbd=[QB[0]-D*2,cy];
+  if(h.ty==="pass"){
+   end=[fxX(h.e),c[1]*.7+cy*.3];keyP=[WR[w],[c[0]-D*3,c[1]],c,end];
+   var fl=arc(qbd,c,40+air*1.4,10);ball=[QB,qbd].concat(fl).concat([end]);
+   o+='<path class="hp-air" d="'+abs(fl)+'">'+(anim?'<animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.40;.62;.9;1" dur="'+HT+'s" repeatCount="indefinite"/>':"")+'</path>';
+   o+='<path class="hp-rt" pathLength="1" stroke="'+co+'" d="'+abs(keyP)+'">'+(anim?'<animate attributeName="stroke-dashoffset" values="1;1;0;0" keyTimes="0;.14;.88;1" dur="'+HT+'s" repeatCount="indefinite"/>':"")+'</path>';
+   o+=arrowHead(keyP,co,anim);
+   o+=piece(QB[0],QB[1],co,"qb",motion([QB,qbd],[[0,0],[.14,0],[.34,1],[1,1]],anim),initials(h.qb));
+   var others=WR.filter(function(_,k){return k!==w});
+   others.forEach(function(p){o+=piece(p[0],p[1],co,"",simple(p[0],p[1],p[0]+D*12,p[1]+(cy-p[1])*.35,anim,.14,.7))});
+   key=piece(keyP[0][0],keyP[0][1],co,"key",motion(keyP,[[0,0],[.14,0],[.5,1],[.64,2],[.88,3],[1,3]],anim),initials(h.rc));
+   if(!anim)key=piece(end[0],end[1],co,"key","",initials(h.rc));
+   ball=motionBall(ball,[[0,0],[.14,0],[.34,1],[.40,1],[.64,ball.length-2],[.88,ball.length-1],[1,ball.length-1]],anim,end);
+  }else{
+   end=[fxX(h.e),c[1]];var picker=CB.concat(SF).reduce(function(a,p){return Math.abs(p[1]-c[1])<Math.abs(a[1]-c[1])?p:a});
+   var fl2=arc(qbd,c,30,8);ball=[QB,qbd].concat(fl2).concat([end]);
+   keyP=[picker,c,end];
+   o+='<path class="hp-air" d="'+abs(fl2)+'"/>';
+   o+='<path class="hp-rt" pathLength="1" stroke="'+cd+'" d="'+abs([c,end])+'">'+(anim?'<animate attributeName="stroke-dashoffset" values="1;1;0;0" keyTimes="0;.64;.88;1" dur="'+HT+'s" repeatCount="indefinite"/>':"")+'</path>'+arrowHead([c,end],cd,anim);
+   o+=piece(QB[0],QB[1],co,"qb",motion([QB,qbd],[[0,0],[.14,0],[.34,1],[1,1]],anim),initials(h.qb));
+   WR.forEach(function(p,k){o+=piece(p[0],p[1],co,"",simple(p[0],p[1],k===w?c[0]-D*2:p[0]+D*10,k===w?c[1]+8:p[1],anim,.14,.62))});
+   key=piece(picker[0],picker[1],cd,"key",motion(keyP,[[0,0],[.14,0],[.64,1],[.88,2],[1,2]],anim),initials(h.by));
+   if(!anim)key=piece(end[0],end[1],cd,"key","",initials(h.by));
+   ball=motionBall(ball,[[0,0],[.14,0],[.34,1],[.40,1],[.64,ball.length-2],[.88,ball.length-1],[1,ball.length-1]],anim,end);
+  }
+ }else{
+  var hole=[s+D*1.5,cy+(yL-cy)*.35],start=ret?[s,cy+(h.ln||0)*40]:RB;end=[fxX(h.e),cy+(yL-cy)*.55];
+  var mid=[(hole[0]+end[0])/2,(hole[1]+end[1])/2+(dir>0?26:-26)];
+  keyP=ret?[start,[start[0]+D*12,cy+30],mid,end]:[RB,[RB[0]+D*2,cy+4],hole,mid,end];
+  var by=h.ty==="fum"?h.def:h.by;
+  o+='<path class="hp-rt" pathLength="1" stroke="'+co+'" d="'+abs(keyP)+'">'+(anim?'<animate attributeName="stroke-dashoffset" values="1;1;0;0" keyTimes="0;.30;.88;1" dur="'+HT+'s" repeatCount="indefinite"/>':"")+'</path>'+arrowHead(keyP,co,anim);
+  if(!ret){o+=piece(QB[0],QB[1],co,"qb",simple(QB[0],QB[1],QB[0]-D,QB[1]-10,anim,.14,.3));WR.forEach(function(p){o+=piece(p[0],p[1],co,"",simple(p[0],p[1],p[0]+D*7,p[1],anim,.14,.6))})}
+  var tk=ret?[[0,0],[.14,0],[.4,1],[.64,2],[.88,3],[1,3]]:[[0,0],[.14,0],[.3,1],[.42,2],[.64,3],[.88,4],[1,4]];
+  key=anim?piece(keyP[0][0],keyP[0][1],co,"key",motion(keyP,tk,anim),initials(h.by||by)):piece(end[0],end[1],co,"key","",initials(h.by||by));
+  ball=motionBall(ret?keyP:[QB].concat(keyP.slice(1)),tk,anim,end);
+ }
+ if(!ret){OL.forEach(function(p){o+=piece(p[0],p[1],co,"ol",simple(p[0],p[1],p[0]+D*1.6,p[1],anim,.14,.5))});if(h.ty!=="rush")o+=piece(RB[0],RB[1],co,"",simple(RB[0],RB[1],RB[0]+D*3,RB[1]-20,anim,.14,.5));o+=piece(TE[0],TE[1],co,"",simple(TE[0],TE[1],TE[0]+D*5,TE[1]+6,anim,.14,.6))}
+ var defs=ret?[[end[0]-D*18,cy-90],[end[0]-D*22,cy+70],[end[0]-D*14,cy+10],[end[0]-D*26,cy-20],[end[0]-D*30,cy+110],[end[0]-D*20,cy-140]]:DL.concat(LB,CB,SF);
+ if(h.ty==="int"){var pk=keyP[0];defs=defs.filter(function(p){return p!==pk})}
+ defs.forEach(function(p,k){var f=.45+(k%4)*.1,tx=p[0]+(end[0]-p[0])*f,ty=p[1]+(end[1]-p[1])*f;o+=piece(p[0],p[1],cd,"df",simple(p[0],p[1],tx,ty,anim,.14+(k%3)*.04,.9))});
+ var los=ret?"":'<line class="hp-los" x1="'+r1(s)+'" y1="14" x2="'+r1(s)+'" y2="346"/>';
+ var tdz=h.td?'<rect class="hp-tdz" x="'+(h.e>=50?660:0)+'" y="0" width="60" height="360" fill="'+co+'">'+(anim?'<animate attributeName="opacity" values="0;0;.85;0" keyTimes="0;.86;.92;1" dur="'+HT+'s" repeatCount="indefinite"/>':"")+'</rect>':"";
+ var spot='<circle class="hp-spot" cx="'+r1(end[0])+'" cy="'+r1(end[1])+'" r="15">'+(anim?'<animate attributeName="r" values="0;0;24;15" keyTimes="0;.86;.92;1" dur="'+HT+'s" repeatCount="indefinite"/>':"")+'</circle>';
+ return '<g class="hp">'+tdz+los+o+key+spot+ball+'</g>'}
+function arrowHead(p,c,anim){var a=p[p.length-2],b=p[p.length-1],ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
+ return '<path class="hp-ah" fill="'+c+'" d="M0,0 L-15,-9 L-11,0 L-15,9Z" transform="translate('+r1(b[0])+' '+r1(b[1])+') rotate('+r1(ang)+')">'+(anim?'<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.84;.88;1" dur="'+HT+'s" repeatCount="indefinite"/>':"")+'</path>'}
+function motionBall(p,times,anim,end){var b='<ellipse rx="5" ry="3.4" class="hp-ball"/><path class="hp-lace" d="M-2.5,0H2.5"/>';
+ if(!anim)return '<g transform="translate('+r1(end[0])+' '+r1(end[1]-10)+')">'+b+'</g>';
+ return '<g transform="translate('+r1(p[0][0])+' '+r1(p[0][1]-10)+')">'+b+motion(p,times,true)+'</g>'}
+function miniField(g,h,anim){return fieldSVG(g).replace("</svg>",playSVG(g,h,anim)+"</svg>")}
+function lastHl(id){var l=plays(id);for(var i=l.length-1;i>=0;i--)if(l[i].hl)return l[i];return null}
+function hlCaption(g,x){var h=x.hl;return '<div class="ar-hl" style="--tc:'+tcol(g.lg,h.ty==="int"||h.ty==="fum"?h.def:h.off)+'"><em>'+esc(hlKind(h))+" · "+esc(h.t||x.t||"")+'</em><b>'+esc(hlTitle(h))+'</b><span>'+esc(hlSub(h))+'</span></div>'}
+
+/* ---------- Highlights page (#highlights) ---------- */
+var hlLg="all",hlIO=null;
+function hlAll(){var out=[];if(!PL||!PL.games)return out;Object.keys(PL.games).forEach(function(id){var e=PL.games[id];(e.plays||[]).forEach(function(x,i){if(x.hl)out.push({id:id,e:e,x:x,i:i})})});
+ out.sort(function(a,b){return String(b.x.at||"").localeCompare(String(a.x.at||""))||b.i-a.i});return out}
+function hlCard(it,k){var e=it.e,h=it.x.hl,g={lg:e.lg,a:e.a,h:e.h};
+ return '<a class="hlc" href="#game-'+esc(it.id)+'" style="--tc:'+tcol(e.lg,h.ty==="int"||h.ty==="fum"?h.def:h.off)+'"><div class="hlc-f">'+miniField(g,h,true)+'</div><div class="hlc-b"><em>'+esc(e.lg)+" · "+esc(hlKind(h))+" · "+esc(h.t||"")+'</em><h3>'+esc(hlTitle(h))+'</h3><p>'+esc(hlSub(h))+'</p><small>'+esc(e.a+" "+(h.sa!=null?h.sa:e.as)+" · "+e.h+" "+(h.sh!=null?h.sh:e.hs))+(/LIVE|HALF/.test(e.st||"")?' · <b class="lv">LIVE</b>':"")+'</small></div></a>'}
+function hlFill(){var box=document.getElementById("hlGrid");if(!box)return;var l=hlAll(),lgs={};l.forEach(function(it){lgs[it.e.lg]=1});
+ var f=$("#hlF");if(f)f.innerHTML=["all"].concat(Object.keys(lgs)).map(function(k){return '<button type="button" data-hl="'+esc(k)+'" aria-pressed="'+(hlLg===k)+'">'+(k==="all"?"All":esc(k))+'</button>'}).join("");
+ var shown=l.filter(function(it){return hlLg==="all"||it.e.lg===hlLg}).slice(0,40);
+ box.innerHTML=shown.length?shown.map(hlCard).join(""):'<p class="pt-e">'+(PL?"No big plays yet. Highlights land here as they happen: 20+ yard passes, 15+ yard runs, takeaways and return scores, drawn on the field.":"Loading highlights…")+'</p>';
+ if(hlIO)hlIO.disconnect();if(!window.IntersectionObserver)return;
+ hlIO=new IntersectionObserver(function(en){en.forEach(function(x){var sv=x.target.querySelector("svg");if(!sv||!sv.pauseAnimations)return;if(x.isIntersecting)sv.unpauseAnimations();else sv.pauseAnimations()})},{rootMargin:"80px"});
+ box.querySelectorAll(".hlc-f").forEach(function(el){hlIO.observe(el)})}
+window.VHL={view:function(){return '<section class="hlv"><header class="hlv-h"><div class="hlv-k"><i></i>Live highlights</div><h1>Big plays, on the field</h1><p>Every 20+ yard pass, 15+ yard run, takeaway and return score VAULT tracks, drawn on the field with the players who made it.</p><div class="hlv-f" id="hlF" role="group" aria-label="Filter by league"></div></header><div class="hlv-g" id="hlGrid"></div><p class="pt-n">Plays and names from ESPN’s public play-by-play. Player positions other than the ball carrier, passer and receiver are illustrative.</p></section>'},
+ after:function(){hlFill();var f=$("#hlF");if(f&&!f._b){f._b=1;f.addEventListener("click",function(ev){var b=ev.target.closest("[data-hl]");if(b){hlLg=b.getAttribute("data-hl");hlFill()}})}}};
 
 /* ---------- Arena ---------- */
 var AR=null,sel=null,st={rx:58,rz:-16,drag:false,idle:0,t0:performance.now(),vis:true},seen={};
@@ -104,7 +206,7 @@ function onArenaPage(){var h=(location.hash||"#home").slice(1);return h===""||h=
 function build(){
  var app=$("#app"),view=$("#view");if(!app||!view)return;
  AR=document.createElement("section");AR.className="arena";AR.id="arena";AR.setAttribute("aria-label","Live Arena");
- AR.innerHTML='<div class="ar-in"><div class="ar-stage" id="arStage" tabindex="0" aria-label="3D stadium. Drag or use arrow keys to look around."><div class="ar-cam"><div class="ar-world" id="arWorld"></div></div><div class="ar-fx" id="arFx"></div><div class="ar-hint" id="arHint">Drag to spin the stadium</div></div>'+
+ AR.innerHTML='<div class="ar-in"><div class="ar-stage" id="arStage" tabindex="0" aria-label="3D stadium. Drag or use arrow keys to look around."><div class="ar-cam"><div class="ar-world" id="arWorld"></div></div><div class="ar-fx" id="arFx"></div><div class="ar-hlw" id="arHlc" aria-live="polite"></div><div class="ar-hint" id="arHint">Drag to spin the stadium</div></div>'+
  '<div class="ar-side" id="arSide" aria-live="polite"></div></div>';
  app.insertBefore(AR,view);
  var stg=$("#arStage"),lx=0,ly=0;
@@ -140,21 +242,26 @@ function render(full){
   w.className="ar-world"+(fb?"":" court");
   w.innerHTML='<div class="ar-ground"></div>'+
    '<div class="ar-st n" style="--c1:'+ch+';--c2:#d9e0dc"></div><div class="ar-st s" style="--c1:'+ca+';--c2:#d9e0dc"></div><div class="ar-st w" style="--c1:'+ca+';--c2:'+ch+'"></div><div class="ar-st e" style="--c1:'+ch+';--c2:'+ca+'"></div>'+
-   '<div class="ar-floor">'+(fb?fieldSVG(g):courtSVG(g))+'</div><div class="ar-pool"></div>'+
+   '<div class="ar-floor">'+(fb?fieldSVG(g)+'<svg class="ar-play" id="arPlay" viewBox="0 0 720 360" preserveAspectRatio="none" aria-hidden="true"></svg>':courtSVG(g))+'</div><div class="ar-pool"></div>'+
    '<div class="ar-lead l" style="--lc:'+ca+'"></div><div class="ar-lead r" style="--lc:'+ch+'"></div>'+
    '<div class="ar-goal l">'+goalSVG(fb)+'</div><div class="ar-goal r">'+goalSVG(fb)+'</div>'+
    '<div class="ar-tw a"><i></i></div><div class="ar-tw b"><i></i></div><div class="ar-tw c"><i></i></div><div class="ar-tw d"><i></i></div>'+
    '<div class="ar-shadow"></div><div class="ar-jb"><div class="ar-bob"><div class="ar-box" style="--ca:'+ca+';--ch:'+ch+'"><div class="ar-f bk"></div><div class="ar-f lt"></div><div class="ar-f rt"></div><div class="ar-f tp"></div><div class="ar-f bt"></div><div class="ar-f fr" id="arScreen">'+jbHTML(g)+'</div></div></div></div>';
-  lastKind=kind;apply()}
+  lastKind=kind;arPlay.k=null;apply()}
  else{
   var scr=$("#arScreen"),oa=scr.querySelector('[data-k=as]').textContent,oh=scr.querySelector('[data-k=hs]').textContent;
   scr.innerHTML=jbHTML(g);
   if(lastSel===sel){flapTo(scr.querySelector('[data-k=as]'),oa,g.as);flapTo(scr.querySelector('[data-k=hs]'),oh,g.hs)}
  }
- lastSel=sel;
+ lastSel=sel;arPlay(g);
  var lead=g.as===g.hs?"":g.as>g.hs?"l":"r";
  AR.querySelectorAll(".ar-lead").forEach(function(x){x.classList.toggle("on",!!lead&&x.classList.contains(lead)&&isLive(g))});
  side(g)}
+function arPlay(g){
+ var sv=document.getElementById("arPlay"),cap=document.getElementById("arHlc");if(!football(g)){if(cap)cap.innerHTML="";return}
+ var x=lastHl(gid(g)),k=x?gid(g)+"|"+x.key:"";if(k===arPlay.k)return;arPlay.k=k;
+ if(cap)cap.innerHTML=x?hlCaption(g,x):"";if(!sv)return;
+ sv.innerHTML=x?playSVG(g,x.hl,true):"";try{sv.setCurrentTime(0)}catch(_){}}
 function feed(g){var l=plays(gid(g)).slice(-4).reverse();return '<div class="ar-feed"><div class="ar-fh">Play tracker</div>'+(l.length?'<ol class="pls">'+l.map(function(x){return plRow(g,x)}).join("")+'</ol>':'<p class="pt-e">Scoring plays, turnovers and big gains land here as they happen.</p>')+'</div>'}
 function side(g){
  var lv=isLive(g),aw=g.as>g.hs,hw=g.hs>g.as,an=nm(g,"a"),hn=nm(g,"h"),d=Math.abs(g.as-g.hs);
@@ -452,7 +559,7 @@ function parallax(){if(RM)return;var y=window.scrollY;if(Math.abs(y-parY)<1)retu
 function boot(){
  if(!A()||!A().D){setTimeout(boot,200);return}
  if(!RM)document.documentElement.classList.add("fx-anim");build();tick();decorate();bottomLine();reveal();flyIn();if(AR&&RM)AR.classList.add("settled");
- var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();booth();gamePage();reveal()});mo.observe(v,{childList:true})}
+ var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();booth();gamePage();reveal();if((location.hash||"")==="#highlights"&&document.getElementById("hlGrid")&&!document.getElementById("hlGrid").children.length)window.VHL.after()});mo.observe(v,{childList:true})}
  setInterval(tick,1000);
  loadPlays();setInterval(function(){if(!document.hidden)loadPlays()},15000);
  window.addEventListener("hashchange",function(){gpFilter="all";render(true);boothRoute();setTimeout(function(){booth();gamePage()},50)});boothRoute();var nv=$("#nav");if(nv){var nmo=new MutationObserver(function(){if(!nv.querySelector("a.bth-nav"))navLink()});nmo.observe(nv,{childList:true})}var dn=$("#drawerNav");if(dn){var dmo=new MutationObserver(function(){if(!dn.querySelector("a.bth-nav"))navLink()});dmo.observe(dn,{childList:true})}window.addEventListener("scroll",function(){requestAnimationFrame(parallax)},{passive:true});if(window.speechSynthesis)speechSynthesis.onvoiceschanged=function(){bpVoices=null}}

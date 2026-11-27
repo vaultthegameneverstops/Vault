@@ -30,6 +30,10 @@ commits `scores.json` / `plays.json` only when something changed, and deploys th
 One-time setup: **Settings > Pages > Build and deployment > Source: GitHub Actions**. Run it by hand from the Actions tab with *Run workflow*.
 `data.json` (stories) is not touched by this job.
 
+Football highlight plays (20+ yard passes, 15+ yard runs, takeaways, return scores) come from ESPN's play-by-play with full player names
+and field spots. They are drawn on the stadium field (arrow + moving pieces), in each game's play tracker, and on the **Highlights** page (`#highlights`).
+Only the passer, receiver, ball carrier and spot are real; other player positions are illustrative.
+
 ## Ads (Google AdSense)
 Ads are **off** until you add your publisher ID. They never run on the claude.ai preview, never appear on policy pages, and are labelled "Advertisement".
 

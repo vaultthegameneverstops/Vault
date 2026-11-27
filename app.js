@@ -9,7 +9,7 @@ var VaultFeed={
 var D=null,filter="all",feedLimit=9,q="";
 var SPORTS={mma:"MMA",nfl:"NFL",cfb:"College Football",cbb:"College Basketball",nba:"NBA"};
 function secHash(sp){return sp==="nba"?"basketball":sp==="cfb"?"college":sp==="cbb"?"college-basketball":sp}
-var NAV=[["home","Home"],["scores","Scores"],["mma","MMA"],["nfl","NFL"],["college","College Football"],["college-basketball","College Basketball"],["basketball","NBA"],["debates","Debates"],["trending","Trending"],["breaking","Breaking News",1],["social","Social"],["saved","Saved"]];
+var NAV=[["home","Home"],["scores","Scores"],["highlights","Highlights"],["mma","MMA"],["nfl","NFL"],["college","College Football"],["college-basketball","College Basketball"],["basketball","NBA"],["debates","Debates"],["trending","Trending"],["breaking","Breaking News",1],["social","Social"],["saved","Saved"]];
 var $=function(s){return document.querySelector(s)};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function byId(id){return D.stories.filter(function(s){return s.id===id})[0]}
@@ -75,12 +75,26 @@ var photos={};
 function getPhoto(id){return null}/* visitor photo uploads are disabled on the public site */
 function savePhoto(id,p){photos[id]=p;try{localStorage.setItem("vault.photo."+id,JSON.stringify(p));return true}catch(e){return false}}
 function delPhoto(id){delete photos[id];try{localStorage.removeItem("vault.photo."+id)}catch(e){}}
+/* Original player-card art: a jersey back in the story's colors with the player's name. No real photos. */
+function Jersey(s,nm){
+  var pal=s.pal||["#0b1324","#1d4ed8","#f5f5f5","#f5f5f5"],c1=pal[1]||"#1d4ed8",c2=pal[2]||"#ffffff",ink=pal[3]||"#ffffff";
+  var last=String(nm[1]||"").toUpperCase(),ini=(String(nm[0]||"")[0]||"")+(last[0]||""),hoops=s.sport==="nba"||s.sport==="cbb";
+  var fs=last.length>9?17:last.length>6?21:25,id="jg"+String(s.id).replace(/[^a-z0-9]/gi,"");
+  var shape=hoops?"M78 22 C92 34 148 34 162 22 L184 30 C178 62 182 74 196 88 L196 196 L44 196 L44 88 C58 74 62 62 56 30 Z"
+    :"M84 18 C98 30 142 30 156 18 L206 36 L232 92 L196 108 L186 88 L188 196 L52 196 L54 88 L44 108 L8 92 L34 36 Z";
+  var trim=hoops?'<path d="M78 22 C92 34 148 34 162 22" fill="none" stroke="'+c2+'" stroke-width="6"/><path d="M56 30 C62 62 58 74 44 88 M184 30 C178 62 182 74 196 88" fill="none" stroke="'+c2+'" stroke-width="5"/>'
+    :'<path d="M84 18 C98 30 142 30 156 18" fill="none" stroke="'+c2+'" stroke-width="6"/><path d="M14 80 L38 90 M226 80 L202 90" stroke="'+c2+'" stroke-width="7"/><path d="M19 70 L41 80 M221 70 L199 80" stroke="'+ink+'" stroke-width="3" opacity=".8"/>';
+  return '<svg class="ill jersey" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient></defs>'+
+    '<path d="'+shape+'" fill="'+c1+'" stroke="rgba(0,0,0,.35)" stroke-width="2"/><path d="'+shape+'" fill="url(#'+id+')"/>'+trim+
+    '<text x="120" y="'+(hoops?70:64)+'" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="2" fill="'+ink+'" stroke="'+c2+'" stroke-width="1">'+esc(last)+'</text>'+
+    '<text x="120" y="'+(hoops?160:158)+'" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="78" fill="'+ink+'" stroke="'+c2+'" stroke-width="4" paint-order="stroke">'+esc(ini)+'</text></svg>';
+}
 function Art(s,cls){
   var v=(s.id.length+s.id.charCodeAt(0))%3,P=getPhoto(s.id)||(s.img?{src:s.img,credit:s.credit,cutout:s.cutout}:null);
   var nm=s.name||NAMES[s.id],word=nm?'<span class="w nm" aria-hidden="true"><i>'+nm[0]+'</i>'+nm[1]+'</span>':'<span class="w" aria-hidden="true">'+esc(s.art||s.kicker)+'</span>';
   var body;
   if(P&&!P.cutout)body='<img class="photo" src="'+esc(P.src)+'" alt="'+esc(s.title)+'" loading="lazy">';
-  else body=(P?'<img class="cutout" src="'+esc(P.src)+'" alt="'+esc(s.title)+'">':'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>');
+  else body=(P?'<img class="cutout" src="'+esc(P.src)+'" alt="'+esc(s.title)+'">':nm&&s.sport!=="mma"?Jersey(s,nm):'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>');
   var cap=P?(P.credit?'<span class="cap">Photo: '+esc(P.credit)+'</span>':""):'<span class="cap">Original graphic</span>';
   var sl=slime(s.id,s.sport,s.pal),acc=' style="--acc:'+sl.acc+';--blobs:'+sl.bg+'"';
   var who=P&&P.who?String(P.who).slice(0,40):"",fr=who?'<span class="pframe" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="plate"><b>'+esc(who.toUpperCase())+'</b>'+(s.kicker?'<em>'+esc(s.kicker)+'</em>':"")+'</span>':"";
@@ -334,6 +348,7 @@ function route(){
   else if(h==="college")html=vSport("cfb","College Football");
   else if(h==="college-basketball")html=vSport("cbb","College Basketball");
   else if(h==="scores")html=vScores();
+  else if(h==="highlights"&&window.VHL){html=VHL.view();title="Highlights — VAULT"}
   else if(h.indexOf("game-")===0){html=vGame(h.slice(5));var gg=gameById(h.slice(5));if(gg)title=teamName(gg,"a")+" at "+teamName(gg,"h")+" — VAULT"}
   else if(h==="debates")html=vDebates();
   else if(h==="saved")html=vSaved();
@@ -347,12 +362,12 @@ function route(){
   else{h="home";html=vHome()}
   cur=h;
   var v=$("#view");v.classList.remove("noanim");v.style.animation="none";void v.offsetWidth;v.style.animation="";
-  v.innerHTML=html;document.title=title;if(h==="social"&&window.VSocial)VSocial.after();
+  v.innerHTML=html;document.title=title;if(h==="social"&&window.VSocial)VSocial.after();if(h==="highlights"&&window.VHL)VHL.after();
   var key=window.VX&&VX.match(h)?"vx":h.indexOf("story-")===0?(byId(h.slice(6))||{}).sport:h.indexOf("game-")===0?"scores":h;
   var navKey=key==="nba"?"basketball":key==="cfb"?"college":key==="cbb"?"college-basketball":key;
   renderNav(navKey);
 }
-function rerender(keepScroll){var y=window.scrollY;var v=$("#view");v.classList.add("noanim");v.innerHTML=({home:vHome,mma:function(){return vSport("mma","MMA")},nfl:function(){return vSport("nfl","NFL")},basketball:function(){return vSport("nba","NBA")},college:function(){return vSport("cfb","College Football")},"college-basketball":function(){return vSport("cbb","College Basketball")},scores:vScores,debates:vDebates,saved:vSaved,trending:vTrending,breaking:vBreaking,search:vSearch,social:function(){return window.VSocial?VSocial.view():""}}[cur]||function(){return window.VLegal&&VLegal.match(cur)?VLegal.view(cur):window.VX&&VX.match(cur)?VX.view(cur):cur.indexOf("game-")===0?vGame(cur.slice(5)):vStory(cur.slice(6))})();if(cur==="social"&&window.VSocial)VSocial.after();if(keepScroll)window.scrollTo(0,y)}
+function rerender(keepScroll){var y=window.scrollY;var v=$("#view");v.classList.add("noanim");v.innerHTML=({home:vHome,mma:function(){return vSport("mma","MMA")},nfl:function(){return vSport("nfl","NFL")},basketball:function(){return vSport("nba","NBA")},college:function(){return vSport("cfb","College Football")},"college-basketball":function(){return vSport("cbb","College Basketball")},scores:vScores,highlights:function(){return window.VHL?VHL.view():""},debates:vDebates,saved:vSaved,trending:vTrending,breaking:vBreaking,search:vSearch,social:function(){return window.VSocial?VSocial.view():""}}[cur]||function(){return window.VLegal&&VLegal.match(cur)?VLegal.view(cur):window.VX&&VX.match(cur)?VX.view(cur):cur.indexOf("game-")===0?vGame(cur.slice(5)):vStory(cur.slice(6))})();if(cur==="social"&&window.VSocial)VSocial.after();if(keepScroll)window.scrollTo(0,y)}
 var curNav="home";
 function renderNav(active){curNav=active;
   var h=NAV.map(function(n){return '<a href="#'+n[0]+'" class="'+(n[0]===active?"on":"")+'"'+(n[0]===active?' aria-current="page"':"")+'>'+n[1]+(n[0]==="saved"&&savedList().length?' ('+savedList().length+')':"")+(n[2]?'<i class="dot"></i>':"")+'</a>'}).join("");
