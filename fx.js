@@ -750,7 +750,7 @@ function lvPoll(L){if(document.hidden){setTimeout(function(){lvPoll(L)},L[3]);re
   var all=[];Object.keys(LVROWS).forEach(function(k){all=all.concat(LVROWS[k])});
   if(window.VaultLive)VaultLive.push({updatedAt:new Date().toISOString(),src:"ESPN live",games:all});
   all.forEach(function(r){var id=(r.lg+"-"+r.a+"-"+r.h).toLowerCase().replace(/[^a-z0-9-]/g,""),e=PL&&PL.games&&PL.games[id];if(e){e.as=r.as;e.hs=r.hs;e.st=r.st||"FINAL"}});
-  var live=rows.some(function(r){return r.st});setTimeout(function(){lvPoll(L)},live?L[3]:Math.max(L[3],120e3))}).catch(function(){setTimeout(function(){lvPoll(L)},60e3)})}
+  var live=rows.some(function(r){return r.st});setTimeout(function(){lvPoll(L)},live?L[3]:Math.max(L[3],120e3))}).catch(function(err){console.error("LVERR",L[0],err&&err.stack||err);setTimeout(function(){lvPoll(L)},60e3)})}
 function lvStart(){if(LV.on||!window.fetch)return;LV.on=true;LVL.forEach(function(L,i){setTimeout(function(){lvPoll(L)},1500+i*700)})}
 /* the Booth's game: pull its play-by-play every ~12 seconds so the crew calls plays almost as they happen */
 function lvBoothTick(){setTimeout(lvBoothTick,12e3);if(!BP||BP.hidden||document.hidden||!bpSel||bpSel==="studio")return;var m=LV.ids[bpSel];if(!m)return;

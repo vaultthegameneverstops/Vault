@@ -18,6 +18,7 @@ jobs:
               b=await p.chromium.launch(channel="chrome")
               pg=await b.new_page()
               pg.on("pageerror",lambda e: print("PAGEERR",e))
+              pg.on("console",lambda m: print("C",m.text[:400]) if "LVERR" in m.text else None)
               reqs=[]
               pg.on("request",lambda r: reqs.append(r.url) if "espn.com/apis" in r.url else None)
               await pg.goto("http://localhost:8000/#home")
