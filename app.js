@@ -89,16 +89,31 @@ function Jersey(s,nm){
     '<text x="120" y="'+(hoops?70:64)+'" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="2" fill="'+ink+'" stroke="'+c2+'" stroke-width="1">'+esc(last)+'</text>'+
     '<text x="120" y="'+(hoops?160:158)+'" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="78" fill="'+ink+'" stroke="'+c2+'" stroke-width="4" paint-order="stroke">'+esc(ini)+'</text></svg>';
 }
+/* Original fight-shorts art for MMA stories: the fighter's name on the waistband, in the story's colors. */
+function lumOf(h){h=String(h||"").replace("#","");if(h.length!==6)return .5;return (.299*parseInt(h.slice(0,2),16)+.587*parseInt(h.slice(2,4),16)+.114*parseInt(h.slice(4,6),16))/255}
+function Shorts(s,nm){
+  var pal=s.pal||["#0b0b0b","#d20a0a","#8a8a8a","#f2f2f2"],c1=pal[1]||"#d20a0a",c2=pal[2]||"#111",ink=pal[3]||"#fff";if(Math.abs(lumOf(ink)-lumOf(c2))<.35)ink=lumOf(c2)>.5?"#111":"#fff";
+  var last=String(nm[1]||"").toUpperCase(),fs=last.length>9?15:last.length>6?18:21,id="sg"+String(s.id).replace(/[^a-z0-9]/gi,"");
+  var body="M36 40 H204 L214 168 Q170 182 132 172 L124 108 Q120 98 116 108 L108 172 Q70 182 26 168 Z";
+  return '<svg class="ill jersey shorts" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient></defs>'+
+    '<path d="'+body+'" fill="'+c1+'" stroke="rgba(0,0,0,.4)" stroke-width="2"/><path d="'+body+'" fill="url(#'+id+')"/>'+
+    '<path d="M30 108 L26 168 Q44 174 60 176 L58 112 Z" fill="'+c2+'" opacity=".9"/><path d="M210 108 L214 168 Q196 174 180 176 L182 112 Z" fill="'+c2+'" opacity=".9"/>'+
+    '<path d="M44 60 L40 168 M196 60 L200 168" stroke="'+ink+'" stroke-width="3" opacity=".55"/>'+
+    '<rect x="32" y="14" width="176" height="36" rx="5" fill="'+c2+'" stroke="rgba(0,0,0,.4)" stroke-width="2"/>'+
+    '<text x="120" y="'+(38+(21-fs)/3)+'" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="3" fill="'+ink+'">'+esc(last)+'</text>'+
+    '<path d="M108 52 L104 66 M132 52 L136 66" stroke="'+ink+'" stroke-width="3" stroke-linecap="round"/></svg>';
+}
 function Art(s,cls){
-  var v=(s.id.length+s.id.charCodeAt(0))%3,P=getPhoto(s.id)||(s.img?{src:s.img,credit:s.credit,cutout:s.cutout}:null);
-  var nm=s.name||NAMES[s.id],word=nm?'<span class="w nm" aria-hidden="true"><i>'+nm[0]+'</i>'+nm[1]+'</span>':'<span class="w" aria-hidden="true">'+esc(s.art||s.kicker)+'</span>';
+  var nm=s.name||NAMES[s.id];
+  var v=(s.id.length+s.id.charCodeAt(0))%3,P=getPhoto(s.id)||(s.img?{src:s.img,credit:s.credit,cutout:s.cutout,pos:s.imgPos,who:nm?nm.join(" "):""}:null);
+  var word=nm?'<span class="w nm" aria-hidden="true"><i>'+nm[0]+'</i>'+nm[1]+'</span>':'<span class="w" aria-hidden="true">'+esc(s.art||s.kicker)+'</span>';
   var body;
   if(P&&!P.cutout)body='<img class="photo" src="'+esc(P.src)+'" alt="'+esc(s.title)+'" loading="lazy">';
-  else body=(P?'<img class="cutout" src="'+esc(P.src)+'" alt="'+esc(s.title)+'">':nm&&s.sport!=="mma"?Jersey(s,nm):'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>');
+  else body=(P?'<img class="cutout" src="'+esc(P.src)+'" alt="'+esc(s.title)+'">':nm?(s.sport==="mma"?Shorts(s,nm):Jersey(s,nm)):'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>');
   var cap=P?(P.credit?'<span class="cap">Photo: '+esc(P.credit)+'</span>':""):'<span class="cap">Original graphic</span>';
   var sl=slime(s.id,s.sport,s.pal),acc=' style="--acc:'+sl.acc+';--blobs:'+sl.bg+'"';
   var who=P&&P.who?String(P.who).slice(0,40):"",fr=who?'<span class="pframe" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="plate"><b>'+esc(who.toUpperCase())+'</b>'+(s.kicker?'<em>'+esc(s.kicker)+'</em>':"")+'</span>':"";
-  if(P&&!P.cutout&&P.pos)body=body.replace('class="photo"','class="photo" style="object-position:50% '+(+P.pos||22)+'%"');
+  if(P&&!P.cutout&&P.pos)body=body.replace('class="photo"','class="photo" style="object-position:'+(/%/.test(String(P.pos))?esc(P.pos):"50% "+(+P.pos||22)+"%")+'"');
   return '<div class="art s-'+s.sport+' v'+v+(P&&!P.cutout?" has-photo":"")+' '+(cls||"")+'"'+acc+'>'+SCENE[s.sport]+(P&&!P.cutout?"":word)+body+(P&&!P.cutout&&!who?'<span class="w nm shade" aria-hidden="true">'+(nm?'<i>'+nm[0]+'</i>'+nm[1]:esc(s.art||s.kicker))+'</span>':"")+fr+'<span class="sp">'+SPLAB[s.sport]+'</span>'+cap+'</div>';
 }
 function Label(s){
@@ -236,7 +251,12 @@ function Actions(s){var r=getRate(s.id);return '<div class="acts">'+SaveBtn(s.id
 /* ---------- scores ---------- */
 function isLive(g){return /LIVE|Q\d|H\d|\d+:\d+|HALF|OT/i.test(g.st||"")&&!/FINAL/i.test(g.st||"")}
 var LGS={NFL:"nfl",NBA:"nba",WNBA:"nba",CFB:"cfb",NCAAF:"cfb",CBB:"cbb",NCAAB:"cbb",UFC:"mma",MMA:"mma"};
-function Score(g){var live=isLive(g),aw=g.as>g.hs,hw=g.hs>g.as,fin=!live;return '<button type="button" class="sc'+(live?" live":"")+'" data-game="'+esc(gid(g))+'" aria-label="'+esc(teamName(g,"a")+" at "+teamName(g,"h")+", open game")+'"><div class="sc-h"><span>'+esc(g.lg)+'</span><b>'+(live?'<i class="dot"></i>':"")+esc(g.st||"FINAL")+'</b></div><div class="sc-r'+(fin&&aw?" w":"")+'"><span>'+esc(g.a)+'</span><b>'+esc(g.as)+'</b></div><div class="sc-r'+(fin&&hw?" w":"")+'"><span>'+esc(g.h)+'</span><b>'+esc(g.hs)+'</b></div><div class="sc-n">Tap for full game</div></button>'}
+/* Team logos from the ESPN scoreboard feed (used to identify teams, like any scoreboard). */
+var LOGOS_ON=true;
+function logoSrc(u,px){u=String(u||"");if(!u)return "";var m=u.match(/^https:\/\/a\.espncdn\.com(\/i\/teamlogos\/.+\.png)$/);return m?"https://a.espncdn.com/combiner/i?img="+m[1]+"&w="+px+"&h="+px:u}
+function Logo(g,k,cls,px){var u=LOGOS_ON&&g&&g[k+"lg"];return u?'<img class="tlogo '+(cls||"")+'" src="'+esc(logoSrc(u,px||80))+'" alt="" loading="lazy" onerror="this.remove()">':""}
+window.VLogo={src:logoSrc,html:Logo};
+function Score(g){var live=isLive(g),aw=g.as>g.hs,hw=g.hs>g.as,fin=!live;return '<button type="button" class="sc'+(live?" live":"")+'" data-game="'+esc(gid(g))+'" aria-label="'+esc(teamName(g,"a")+" at "+teamName(g,"h")+", open game")+'"><div class="sc-h"><span>'+esc(g.lg)+'</span><b>'+(live?'<i class="dot"></i>':"")+esc(g.st||"FINAL")+'</b></div><div class="sc-r'+(fin&&aw?" w":"")+'"><span>'+Logo(g,"a")+esc(g.a)+'</span><b>'+esc(g.as)+'</b></div><div class="sc-r'+(fin&&hw?" w":"")+'"><span>'+Logo(g,"h")+esc(g.h)+'</span><b>'+esc(g.hs)+'</b></div><div class="sc-n">Tap for full game</div></button>'}
 function ScoreGrid(l){return l.length?'<div class="scs">'+l.map(Score).join("")+'</div>':Empty("No scores yet","Check back soon.")}
 function vScores(){
   var l=D.ticker.filter(function(g){return filter==="all"||LGS[String(g.lg).toUpperCase()]===filter}),lv=l.filter(isLive),fin=l.filter(function(g){return !isLive(g)});
@@ -331,9 +351,9 @@ function vGame(id){
   var words=[an,hn].map(function(n){return n.split(" ").slice(-1)[0].toLowerCase()}).concat([an.toLowerCase(),hn.toLowerCase()]);
   var rel=D.stories.filter(function(s){var h=(s.title+" "+s.tags.join(" ")).toLowerCase();return words.some(function(w){return w.length>3&&h.indexOf(w)>-1})}).slice(0,4);
   var more=D.ticker.filter(function(x){return gid(x)!==id&&lgKey(x)===lk}).slice(0,6);
-  function row(name,ab,sc,win,rec){return '<div class="gm-t'+(win?" w":"")+'"><div><b>'+esc(name)+'</b><small>'+esc(ab)+(rec?'<em class="rec" aria-label="Record '+esc(rec)+'">'+esc(rec)+'</em>':'')+'</small></div><span>'+esc(sc)+'</span></div>'}
+  function row(name,ab,sc,win,rec,k){return '<div class="gm-t'+(win?" w":"")+'">'+Logo(g,k,"lg",120)+'<div><b>'+esc(name)+'</b><small>'+esc(ab)+(rec?'<em class="rec" aria-label="Record '+esc(rec)+'">'+esc(rec)+'</em>':'')+'</small></div><span>'+esc(sc)+'</span></div>'}
   return '<a class="back" href="#scores">← Scores</a><div class="grid"><article><div class="gm'+(live?" live":"")+'"><div class="gm-h"><span>'+esc(g.lg)+(g.note?" · "+esc(g.note):"")+'</span><b>'+(live?'<i class="dot"></i>':"")+esc(g.st||"FINAL")+'</b></div>'+
-   row(an,g.a,g.as,!live&&aw,g.ar)+row(hn,g.h,g.hs,!live&&hw,g.hr)+'<div class="gm-f">'+esc(res)+'</div></div>'+
+   row(an,g.a,g.as,!live&&aw,g.ar,"a")+row(hn,g.h,g.hs,!live&&hw,g.hr,"h")+'<div class="gm-f">'+esc(res)+'</div></div>'+
    Recap(g)+'<p class="page-s">Score as of the last VAULT update'+(t?" ("+t+")":"")+'. Away team on top, home team on the bottom.'+(g.ar||g.hr?' Records are season win-loss records as of the last VAULT update.':'')+' Live scores from ESPN\u2019s public scoreboard; earlier scores from Sportradar data.</p>'+
    (rel.length?Section("Related stories","",'<div class="cards">'+rel.map(Card).join("")+'</div>'):"")+
    (more.length?Section("More "+esc(g.lg)+" scores","",ScoreGrid(more)):"")+'</article><div>'+Side()+'</div></div>'}
@@ -443,7 +463,7 @@ $("#searchForm").addEventListener("submit",function(e){e.preventDefault();if(cur
 window.addEventListener("hashchange",function(){var np=$("#notif");if(np&&!np.hidden){np.hidden=true;sset("vault.notifseen",String(Date.now()))}route();window.scrollTo(0,0);bellUI()});
 /* ---------- boot ---------- */
 function ticker(){
-  var one=D.ticker.map(function(g){var aw=g.as>g.hs;return '<a class="tk" href="#game-'+esc(gid(g))+'"><span class="lg">'+g.lg+(isLive(g)?' <i class="dot"></i> '+esc(String(g.st).replace(/^LIVE\s*/i,"")):"")+'</span><span class="'+(aw?"win":"")+'">'+g.a+' <b>'+g.as+'</b></span><span class="win">'+g.h+' <b>'+g.hs+'</b></span></a>'}).join("");
+  var one=D.ticker.map(function(g){var aw=g.as>g.hs;return '<a class="tk" href="#game-'+esc(gid(g))+'"><span class="lg">'+g.lg+(isLive(g)?' <i class="dot"></i> '+esc(String(g.st).replace(/^LIVE\s*/i,"")):"")+'</span><span class="'+(aw?"win":"")+'">'+Logo(g,"a","sm",40)+g.a+' <b>'+g.as+'</b></span><span class="win">'+Logo(g,"h","sm",40)+g.h+' <b>'+g.hs+'</b></span></a>'}).join("");
   $("#ticker").innerHTML=one+one;
 }
 function ago(t){var s=Math.max(0,Math.round((Date.now()-t)/1000));if(s<60)return "just now";var m=Math.round(s/60);if(m<60)return m+" min ago";return t.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}
@@ -461,7 +481,7 @@ function applyScores(){
     var g=byk[gid(x)];
     if(!g){if(!x.st)return;g={lg:x.lg,a:x.a,h:x.h,an:x.an,hn:x.hn};D.ticker.unshift(g);byk[gid(g)]=g}
     g.as=x.as;g.hs=x.hs;if(x.st)g.st=x.st;else delete g.st;
-    if(x.an&&!g.an)g.an=x.an;if(x.hn&&!g.hn)g.hn=x.hn;if(x.ar)g.ar=x.ar;if(x.hr)g.hr=x.hr;if(x.note&&!g.note)g.note=x.note;
+    if(x.an&&!g.an)g.an=x.an;if(x.hn&&!g.hn)g.hn=x.hn;if(x.ar)g.ar=x.ar;if(x.hr)g.hr=x.hr;["alg","hlg","ac","hc","ac2","hc2"].forEach(function(k){if(x[k])g[k]=x[k]});if(x.note&&!g.note)g.note=x.note;
   });
   D.ticker=D.ticker.filter(isLive).concat(D.ticker.filter(function(g){return !isLive(g)}));
   D.updatedAt=SC.updatedAt;return true;

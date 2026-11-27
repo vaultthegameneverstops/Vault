@@ -474,3 +474,45 @@ html body .nav a.bth-nav i,#drawerNav a.bth-nav i{width:7px;height:7px;border-ra
 .pl.hl>:not(.pl-t){grid-column:2}
 .pl.hl .pl-x{color:#8f98a5;font-size:13px}
 .hp-pc text{font-size:9px}
+
+/* team logos in the arena */
+.tlogo{width:24px;height:24px;object-fit:contain;vertical-align:middle;margin-right:6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.tlogo.sm{width:16px;height:16px;margin-right:4px}
+.tlogo.lg{width:40px;height:40px;margin:0 10px 0 2px}
+.tlogo.jb{width:26px;height:26px;margin:0 6px 0 0}
+.jb-t span{display:inline-flex;align-items:center}
+.ar-row{align-items:center}
+.ar-chip span{display:flex;align-items:center}
+/* basketball overlay */
+.hb-sc.dim{opacity:.45}
+.hb-ball{fill:#e8731c;stroke:#5a2a07;stroke-width:1.2}
+.hb-seam{stroke:#5a2a07;stroke-width:1}
+.hb-pts{font:900 italic 26px "Arial Black",Arial,sans-serif;text-anchor:middle;paint-order:stroke;stroke:#fff;stroke-width:4px}
+.pt-sc{margin:6px 0 14px}
+.pt-sch{font:800 italic 14px var(--sn-hd,"Arial Black",sans-serif);text-transform:uppercase;color:#fff;margin-bottom:8px}
+.pt-sch small{font:600 12px var(--sn-bd,system-ui);text-transform:none;color:#8f98a5;margin-left:6px}
+.pt-sc .pl-fd{grid-column:auto;margin:0 0 10px}
+
+/* UFC fight card */
+.fc{margin:6px 0 22px;background:linear-gradient(180deg,#120607,#0b0d12);border:1px solid #2a1416;border-top:4px solid #d20a0a;padding:16px 16px 10px}
+.fc-k{display:inline-flex;align-items:center;gap:8px;font:800 italic 12px var(--sn-hd,"Arial Black",sans-serif);letter-spacing:.1em;text-transform:uppercase;color:#ff4d4d}
+.fc-k i,.fc-m i{width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;margin-right:6px;animation:hlPulse 1.6s infinite}
+.fc-h h2{font:900 italic clamp(22px,4.4vw,34px)/1.05 var(--sn-hd,"Arial Black",sans-serif);text-transform:uppercase;color:#fff;margin:6px 0 4px}
+.fc-h p{margin:0 0 12px;color:#aab3bf;font-weight:600;font-size:14px}
+.fc-l{list-style:none;margin:0;padding:0}
+.fc-b{border-top:1px solid #23272f;padding:10px 0}
+.fc-m{display:flex;justify-content:space-between;gap:10px;font:700 12px var(--sn-bd,system-ui);color:#8f98a5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.fc-m b{color:#cfd6e0;text-align:right}.fc-b.live .fc-m b{color:#ff4d4d}
+.fc-b.main .fc-m span{color:#ffb21a}
+.fc-v{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.fc-vs{font:900 italic 13px var(--sn-hd,"Arial Black",sans-serif);color:#d20a0a}
+.fc-f{display:flex;align-items:center;gap:8px;min-width:0}
+.fc-f.r{flex-direction:row-reverse;text-align:right}
+.fc-f b{display:block;font:800 15px/1.2 var(--sn-bd,system-ui);color:#fff;overflow-wrap:anywhere}
+.fc-b.main .fc-f b{font-size:18px}
+.fc-f small{color:#8f98a5;font-size:12px;font-weight:600}
+.fc-f em{font:900 italic 12px var(--sn-hd,"Arial Black",sans-serif);background:#16a34a;color:#fff;padding:2px 6px;border-radius:3px}
+.fc-f.lose{opacity:.5}
+.fc-fl{width:28px;height:19px;object-fit:cover;border-radius:2px;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.15)}
+.tlogo.jbw{position:absolute;top:8px;left:8px;width:30px;height:30px;margin:0}
+.jb-t span.jb-ab{display:block}

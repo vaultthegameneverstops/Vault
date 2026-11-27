@@ -20,6 +20,7 @@ import json, os, re, datetime, sys
 
 D = os.environ.get("VAULT_LIVE_DIR", "/tmp/vault_live")
 SRC = os.environ.get("VAULT_SRC", "Sportradar via VAULT data feed")
+META = ("alg", "hlg", "ac", "hc", "ac2", "hc2", "ar", "hr")
 LG = {"nfl": "NFL", "ncaafb": "CFB", "nba": "NBA", "ncaamb": "CBB"}
 FOOT = {"NFL", "CFB"}
 
@@ -86,6 +87,14 @@ def parse_scoring(line, a, h):
     return t, x, sc, k, big
 
 
+def go_ahead(h):
+    """A made three that tied the game or took the lead."""
+    if h.get("ty") != "3pt":
+        return False
+    mine, theirs = (h.get("sa", 0), h.get("sh", 0)) if h.get("side") == "a" else (h.get("sh", 0), h.get("sa", 0))
+    return mine - 3 < theirs <= mine
+
+
 def headline(h):
     yd = h.get("yd", 0)
     if h["ty"] == "pass" and h.get("qb") and h.get("rc"):
@@ -94,6 +103,12 @@ def headline(h):
         return "%s %s %d yards%s." % (h["by"], "breaks off" if h["ty"] == "rush" else "returns it", yd, " for the TOUCHDOWN" if h.get("td") else "")
     if h["ty"] == "int":
         return "INTERCEPTED%s%s." % (" by " + h["by"] if h.get("by") else "", " on a pass from " + h["qb"] if h.get("qb") else "")
+    if h["ty"] == "3pt":
+        return "%s drills a %sthree%s." % (h.get("by") or h["tm"], ("%d-foot " % h["ft"]) if h.get("ft") else "", (" (assist: %s)" % h["ast"]) if h.get("ast") else "")
+    if h["ty"] == "dunk":
+        return "%s throws it down%s." % (h.get("by") or h["tm"], (" off a feed from %s" % h["ast"]) if h.get("ast") else "")
+    if h["ty"] == "blk":
+        return "%s rejects %s." % (h.get("by") or h["tm"], h.get("vs") or "the shot")
     if h["ty"] == "fum":
         return "Fumble! %s take it away." % h["def"]
     return h.get("txt", "Big play")
@@ -125,6 +140,9 @@ def main():
         if not (live or recent):
             continue
         row = {"lg": lg, "a": g["a"], "as": int(g["as"]), "h": g["h"], "hs": int(g["hs"]), "an": g.get("an", g["a"]), "hn": g.get("hn", g["h"])}
+        for mk in META:
+            if g.get(mk):
+                row[mk] = g[mk]
         t = st_text(g, lg)
         if t:
             row["st"] = t
@@ -137,6 +155,9 @@ def main():
             out.append((bool(r.get("st")), r, None))
     out.sort(key=lambda x: not x[0])
     scores = {"updatedAt": now_iso(), "src": SRC, "games": [r for _, r, _ in out]}
+    ufc = p.get("ufc") if "ufc" in p else prev_scores.get("ufc")
+    if ufc:
+        scores["ufc"] = ufc
 
     prev_by = {gid(r["lg"], r["a"], r["h"]): r for r in prev_scores.get("games", [])}
     for live, r, g in out:
@@ -146,6 +167,7 @@ def main():
         k = gid(lg, a, h)
         e = P.setdefault(k, {"lg": lg, "a": a, "h": h, "an": r["an"], "hn": r["hn"], "plays": [], "fs": None})
         e.update({"as": r["as"], "hs": r["hs"], "st": r.get("st", "FINAL"), "id": g.get("id", e.get("id"))})
+        e.update({mk: r[mk] for mk in META if r.get(mk)})
         pl = e["plays"]
         keys = {x.get("key") for x in pl}
 
@@ -221,6 +243,12 @@ def main():
                          "tm": None, "k": "score", "big": False, "sa": r["as"], "sh": r["hs"]})
             if g.get("bs"):
                 e["bs"] = g["bs"]
+            if g.get("sh"):
+                e["sh"] = g["sh"]
+            for hh in g.get("hl") or []:
+                add({"key": "hl|" + hh["id"], "t": hh["t"], "x": headline(hh), "tm": hh["tm"],
+                     "k": {"3pt": "three", "dunk": "dunk", "blk": "block"}.get(hh["ty"], "big"),
+                     "big": hh["ty"] == "dunk" or go_ahead(hh), "hl": hh})
         if g.get("status") == "halftime":
             add({"key": "half", "t": "Half", "x": "Halftime: %s %d, %s %d." % (r["an"], r["as"], r["hn"], r["hs"]), "tm": None, "k": "half", "big": False})
         if g.get("status") in ("closed", "complete"):

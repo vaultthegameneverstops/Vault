@@ -34,6 +34,11 @@ Football highlight plays (20+ yard passes, 15+ yard runs, takeaways, return scor
 and field spots. They are drawn on the stadium field (arrow + moving pieces), in each game's play tracker, and on the **Highlights** page (`#highlights`).
 Only the passer, receiver, ball carrier and spot are real; other player positions are illustrative.
 
+Basketball (NBA, college): a live shot chart plus threes, dunks and blocks from ESPN's play-by-play, drawn on the court.
+UFC: the current or next fight card (bouts, records, live round, results) shows on the MMA page.
+Team logos and colors come from the ESPN scoreboard feed and appear on scores, the ticker, game pages, the arena and highlights.
+To turn logos off, set `LOGOS_ON=false` in `app.js`.
+
 ## Ads (Google AdSense)
 Ads are **off** until you add your publisher ID. They never run on the claude.ai preview, never appear on policy pages, and are labelled "Advertisement".
 

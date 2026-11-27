@@ -13,7 +13,14 @@ NBA:{ATL:"#E03A3E",BOS:"#007A33",BKN:"#8f8f8f",CHA:"#00788C",CHI:"#CE1141",CLE:"
 COL:{UGA:"#BA0C2F",CIN:"#E00122",PUR:"#CEB888",OKLA:"#841617",SDSU:"#A6192E",MD:"#E03A3E",BC:"#8A100B",UCF:"#BA9B37",DUKE:"#003087",CONN:"#1d3a7a",TEX:"#BF5700",ALA:"#9E1B32",MICH:"#FFCB05",OSU:"#BB0000",ARMY:"#D4BF91",UTSA:"#F15A22",GC:"#522398",COLO:"#CFB87C",WAKE:"#9E7E38",MSST:"#660000",VCU:"#FFB300",WASH:"#4B2E83",TCU:"#4D1979",TTU:"#CC0000",FSU:"#782F40",FLA:"#0021A5",TAMU:"#500000",GONZ:"#C8102E",BAY:"#154734",KU:"#0051BA",KAN:"#0051BA",UK:"#0033A0",UNC:"#7BAFD4",LOU:"#AD0000",SJU:"#BA0C2F",ISU:"#C8102E",TENN:"#FF8200",MIA:"#F47321",ARK:"#9D2235",MSU:"#18453B",USC:"#990000",UCLA:"#2D68C4",SMC:"#D80024",CREI:"#005CA9",PITT:"#003594",LSU:"#461D7C",ORE:"#154733",KSU:"#512888",GTWN:"#8D817B",ASU:"#8C1D40",SCAR:"#73000A",USU:"#8A8D8F",ND:"#0C2340",PSU:"#041E42",IOWA:"#FFCD00",AUB:"#E87722",OKST:"#FF7300",VAN:"#866D4B",ILL:"#E84A27",IU:"#990000",WIS:"#C5050C",NEB:"#E41C38",CLEM:"#F56600",UVA:"#F84C1E",XAV:"#0C2340",MARQ:"#003366",HOU:"#C8102E",BYU:"#002E5D",ARIZ:"#CC0033",UTAH:"#CC0000",SMU:"#CC0035",NCST:"#CC0000"}
 };
 function hue(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return "hsl("+h+" 62% 46%)"}
-function tcol(lg,ab){lg=String(lg||"").toUpperCase();var m=lg==="NFL"?COL.NFL:lg==="NBA"?COL.NBA:COL.COL;return m[ab]||hue(lg+ab)}
+var TCM={},LGM={};
+function lum(h){h=String(h||"").replace("#","");if(h.length!==6)return .5;var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return (.299*r+.587*g+.114*b)/255}
+function meta1(g){if(!g||!g.lg)return;var L=String(g.lg).toUpperCase();["a","h"].forEach(function(k){var ab=g[k];if(!ab)return;var c=g[k+"c"],c2=g[k+"c2"];if(c){var u=lum(c);TCM[L+"|"+ab]=(u>.86||u<.06)&&c2&&lum(c2)<=.86&&lum(c2)>=.06?c2:c}if(g[k+"lg"])LGM[L+"|"+ab]=g[k+"lg"]})}
+function syncMeta(){try{games().forEach(meta1);if(PL&&PL.games)Object.keys(PL.games).forEach(function(id){meta1(PL.games[id])})}catch(_){}}
+function tcol(lg,ab){lg=String(lg||"").toUpperCase();var m=lg==="NFL"?COL.NFL:lg==="NBA"?COL.NBA:COL.COL;return m[ab]||TCM[lg+"|"+ab]||hue(lg+ab)}
+function logoURL(lg,ab,px){var u=LGM[String(lg||"").toUpperCase()+"|"+ab];return u&&window.VLogo?VLogo.src(u,px||80):""}
+function logoImg(lg,ab,cls,px){var u=logoURL(lg,ab,px);return u?'<img class="tlogo '+(cls||"")+'" src="'+esc(u)+'" alt="" loading="lazy" onerror="this.remove()">':""}
+function centerLogo(g,cx,cy,r){var u=logoURL(g.lg,g.h,160);return u?'<image href="'+esc(u)+'" x="'+(cx-r)+'" y="'+(cy-r)+'" width="'+(2*r)+'" height="'+(2*r)+'" preserveAspectRatio="xMidYMid meet"/>':""}
 function isLive(g){return /LIVE|Q\d|H\d|\d+:\d+|HALF|OT/i.test(g.st||"")&&!/FINAL/i.test(g.st||"")}
 function football(g){var l=String(g.lg).toUpperCase();return l==="NFL"||l==="CFB"}
 function clock(g){return isLive(g)?String(g.st).replace(/^LIVE\s*/i,""):"FINAL"}
@@ -31,25 +38,26 @@ function fieldSVG(g){
  s+='<g stroke="#fff" stroke-opacity=".7">';for(i=1;i<100;i++){if(i%5===0)continue;var hx=60+i*6;s+='<line x1="'+hx+'" y1="138" x2="'+hx+'" y2="146"/><line x1="'+hx+'" y1="214" x2="'+hx+'" y2="222"/><line x1="'+hx+'" y1="4" x2="'+hx+'" y2="12"/><line x1="'+hx+'" y1="348" x2="'+hx+'" y2="356"/>'}s+='</g>';
  s+='<g fill="#fff" fill-opacity=".85" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="22" text-anchor="middle">';
  [10,20,30,40,50,40,30,20,10].forEach(function(n,k){var x=60+(k+1)*60;s+='<text x="'+x+'" y="62">'+n+'</text><text x="'+x+'" y="318" transform="rotate(180 '+x+' 310)">'+n+'</text>'});s+='</g>';
- s+='<circle cx="360" cy="180" r="34" fill="#111C30" stroke="#fff" stroke-width="3"/><path fill="#fff" d="M340 166h9l8 18 3-18h8l-7 30h-8z"/>';
+ s+='<circle cx="360" cy="180" r="34" fill="#111C30" stroke="#fff" stroke-width="3"/><path fill="#fff" d="M340 166h9l8 18 3-18h8l-7 30h-8z"/>';var cl=centerLogo(g,360,180,40);if(cl)s=s.replace(/<circle cx="360" cy="180" r="34"[^>]*\/><path fill="#fff" d="M340[^"]*"\/>/,'<circle cx="360" cy="180" r="46" fill="rgba(255,255,255,.14)" stroke="#fff" stroke-width="3"/>'+cl);
  s+='<g font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="34" fill="#fff" fill-opacity=".92" text-anchor="middle" letter-spacing="6"><text transform="translate(42 180) rotate(-90)">'+esc(g.a)+'</text><text transform="translate(678 180) rotate(90)">'+esc(g.h)+'</text></g>';
  return s+'</svg>'}
+var CSN=0;
 function courtSVG(g){
- var ca=tcol(g.lg,g.a),ch=tcol(g.lg,g.h),s='<svg viewBox="0 0 720 360" preserveAspectRatio="none" aria-hidden="true"><defs><pattern id="pl" width="720" height="18" patternUnits="userSpaceOnUse"><rect width="720" height="18" fill="#c98f55"/><rect y="9" width="720" height="9" fill="#c48a50"/><line x1="0" y1="18" x2="720" y2="18" stroke="#a87443" stroke-width="1"/></pattern></defs>';
- s+='<rect width="720" height="360" fill="url(#pl)"/><rect x="0" y="0" width="720" height="360" fill="none" stroke="#1D4ED8" stroke-width="22"/>';
+ var pid="pl"+(++CSN),ca=tcol(g.lg,g.a),ch=tcol(g.lg,g.h),s='<svg viewBox="0 0 720 360" preserveAspectRatio="none" aria-hidden="true"><defs><pattern id="'+pid+'" width="720" height="18" patternUnits="userSpaceOnUse"><rect width="720" height="18" fill="#c98f55"/><rect y="9" width="720" height="9" fill="#c48a50"/><line x1="0" y1="18" x2="720" y2="18" stroke="#a87443" stroke-width="1"/></pattern></defs>';
+ s+='<rect width="720" height="360" fill="url(#'+pid+')"/><rect x="0" y="0" width="720" height="360" fill="none" stroke="#1D4ED8" stroke-width="22"/>';
  s+='<g fill="none" stroke="#fff" stroke-width="3"><rect x="11" y="11" width="698" height="338"/><line x1="360" y1="11" x2="360" y2="349"/><circle cx="360" cy="180" r="46"/>';
  s+='<path d="M11 36H70A160 160 0 0 1 70 324H11"/><path d="M709 36H650A160 160 0 0 0 650 324H709"/></g>';
  s+='<rect x="11" y="132" width="146" height="96" fill="'+ca+'" stroke="#fff" stroke-width="3"/><rect x="563" y="132" width="146" height="96" fill="'+ch+'" stroke="#fff" stroke-width="3"/>';
  s+='<g fill="none" stroke="#fff" stroke-width="3"><circle cx="157" cy="180" r="46"/><circle cx="563" cy="180" r="46"/></g>';
- s+='<circle cx="360" cy="180" r="44" fill="#111C30"/><path fill="#fff" d="M343 165h9l8 18 3-18h8l-7 30h-8z"/>';
+ s+='<circle cx="360" cy="180" r="44" fill="#111C30"/><path fill="#fff" d="M343 165h9l8 18 3-18h8l-7 30h-8z"/>';var cl2=centerLogo(g,360,180,38);if(cl2)s=s.replace(/<circle cx="360" cy="180" r="44" fill="#111C30"\/><path fill="#fff" d="M343[^"]*"\/>/,'<circle cx="360" cy="180" r="44" fill="rgba(255,255,255,.18)"/>'+cl2);
  s+='<g font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="30" fill="#fff" fill-opacity=".55" text-anchor="middle" letter-spacing="4"><text transform="translate(250 190)">'+esc(g.a)+'</text><text transform="translate(470 190)">'+esc(g.h)+'</text></g>';
  return s+'</svg>'}
 function goalSVG(fb){return fb?'<svg viewBox="0 0 120 110" aria-hidden="true"><g stroke="#ffd21f" stroke-width="5" fill="none" stroke-linecap="round"><path d="M60 110V46M24 46H96M24 46V2M96 46V2"/></g></svg>':'<svg viewBox="0 0 120 130" aria-hidden="true"><path d="M60 130V40" stroke="#2b302d" stroke-width="7"/><rect x="22" y="6" width="76" height="46" fill="rgba(255,255,255,.75)" stroke="#fff" stroke-width="4"/><rect x="47" y="24" width="26" height="20" fill="none" stroke="#e0262f" stroke-width="3"/><ellipse cx="60" cy="54" rx="14" ry="4" fill="none" stroke="#ff6a00" stroke-width="3"/></svg>'}
 function jbHTML(g){
  var lv=isLive(g),aw=g.as>g.hs,hw=g.hs>g.as;
  return '<div class="jb"><div class="jb-top"><span>'+esc(g.lg)+(g.note?" · "+esc(g.note):"")+'</span><b>'+esc(clock(g))+'</b></div><div class="jb-mid">'+
- '<div class="jb-t'+(aw?" up":"")+'" style="--tc:'+tcol(g.lg,g.a)+'"><span>'+esc(g.a)+'</span><strong data-k="as">'+esc(g.as)+'</strong></div>'+
- '<div class="jb-t'+(hw?" up":"")+'" style="--tc:'+tcol(g.lg,g.h)+'"><span>'+esc(g.h)+'</span><strong data-k="hs">'+esc(g.hs)+'</strong></div></div>'+
+ '<div class="jb-t'+(aw?" up":"")+'" style="--tc:'+tcol(g.lg,g.a)+'">'+logoImg(g.lg,g.a,"jbw",120)+'<span class="jb-ab">'+esc(g.a)+'</span><strong data-k="as">'+esc(g.as)+'</strong></div>'+
+ '<div class="jb-t'+(hw?" up":"")+'" style="--tc:'+tcol(g.lg,g.h)+'">'+logoImg(g.lg,g.h,"jbw",120)+'<span class="jb-ab">'+esc(g.h)+'</span><strong data-k="hs">'+esc(g.hs)+'</strong></div></div>'+
  '<div class="jb-bot">'+(lv?"LIVE ON VAULT":"FINAL SCORE")+'</div></div>'}
 
 /* ---------- split-flap ---------- */
@@ -62,14 +70,14 @@ function flapTo(el,oldV,newV){
 
 /* ---------- plays (plays.json, written by the live loop) ---------- */
 var PL=null,plSig="",plSeen={},plBoot=Date.now(),lastBurst={};
-var KIND={td:"Touchdown",fg:"Field goal",xp:"Extra point","2pt":"2-pt try",sf:"Safety",to:"Turnover",big:"Big play",run:"Scoring run",score:"Score",half:"Halftime",final:"Final"};
+var KIND={three:"Three",dunk:"Dunk",block:"Block",td:"Touchdown",fg:"Field goal",xp:"Extra point","2pt":"2-pt try",sf:"Safety",to:"Turnover",big:"Big play",run:"Scoring run",score:"Score",half:"Halftime",final:"Final"};
 function plays(id){return PL&&PL.games&&PL.games[id]?PL.games[id].plays||[]:[]}
 function plRow(g,x,o){var c=x.tm?tcol(g.lg,x.tm):"#3a443f",h=x.hl;o=o||{};
- var fd=h&&o.fd&&football(g)?'<div class="pl-fd">'+miniField(g,h,!!o.anim)+'</div>':"";
+ var fd=h&&o.fd?(football(g)?'<div class="pl-fd">'+miniField(g,h,!!o.anim)+'</div>':hoops(g)?'<div class="pl-fd">'+miniCourt(g,h,!!o.anim)+'</div>':""):"";
  return '<li class="pl'+(x.big?" big":"")+(h?" hl":"")+' k-'+esc(x.k)+'"><span class="pl-t">'+esc(x.t||"")+'</span><span class="pl-k" style="--tc:'+c+'">'+esc(KIND[x.k]||"Play")+(x.tm?" · "+esc(x.tm):"")+'</span>'+(h?'<span class="pl-hl">'+esc(hlTitle(h))+' <em>'+esc(hlSub(h))+'</em></span>':"")+(h&&String(x.key).indexOf("hl|")===0?"":'<span class="pl-x">'+esc(x.x)+'</span>')+fd+'</li>'}
 function loadPlays(){
  return fetch("plays.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
-  var sig=JSON.stringify(d.games||{});if(sig===plSig)return;var first=!plSig;plSig=sig;PL=d;
+  var sig=JSON.stringify(d.games||{});if(sig===plSig)return;var first=!plSig;plSig=sig;PL=d;syncMeta();
   Object.keys(d.games||{}).forEach(function(id){var e=d.games[id];(e.plays||[]).forEach(function(x){var k=id+"|"+x.key;if(plSeen[k])return;plSeen[k]=1;if(!first&&Date.now()-plBoot>8000&&x.big)bigPlay(id,e,x)})});
   render(false);gamePage();booth();bottomLine();bpRefresh();if((location.hash||"")==="#highlights")hlFill();
  }).catch(function(){})}
@@ -95,18 +103,21 @@ function gamePage(){
  var g={lg:e?e.lg:"",a:e?e.a:"",h:e?e.h:""};
  var extra="";
  if(e&&e.fs){extra='<div class="pt-st"><div><b>'+esc(e.fs.a.yds!=null?e.fs.a.yds:"–")+'</b>'+esc(e.a)+' total yards</div><div><b>'+esc(e.fs.h.yds!=null?e.fs.h.yds:"–")+'</b>'+esc(e.h)+' total yards</div><div><b>'+esc(e.fs.a.to||0)+'–'+esc(e.fs.h.to||0)+'</b>Turnovers '+esc(e.a)+'–'+esc(e.h)+'</div></div>'}
- if(e&&e.bs){extra='<div class="pt-st">'+["a","h"].map(function(k){var b=e.bs[k];return b?'<div><b>'+esc(b.pts)+'</b>'+esc(b.ld)+' leads '+esc(e[k])+'</div>':""}).join("")+'</div>'}
+ if(e&&e.sh&&hoops(g)){var mk={a:[0,0],h:[0,0]};e.sh.forEach(function(q){mk[q[3]][1]++;if(q[2])mk[q[3]][0]++});
+  extra+='<div class="pt-sc"><div class="pt-sch">Shot chart <small>last '+e.sh.length+' shots · ● made · ✕ missed</small></div><div class="pl-fd">'+miniCourt(g,null,false,e.sh)+'</div><div class="pt-st">'+["a","h"].map(function(k){return '<div><b>'+mk[k][0]+'/'+mk[k][1]+'</b>'+esc(e[k])+' field goals</div>'}).join("")+'</div></div>'}
+ if(e&&e.bs){extra+='<div class="pt-st">'+["a","h"].map(function(k){var b=e.bs[k];return b?'<div><b>'+esc(b.pts)+'</b>'+esc(b.ld)+' leads '+esc(e[k])+'</div>':""}).join("")+'</div>'}
  box.innerHTML='<div class="pt-h"><h2>Play tracker</h2>'+(lv?'<span class="pt-live"><i></i>Live</span>':"")+'<div class="pt-f" role="group" aria-label="Filter plays"><button type="button" data-pf="all" aria-pressed="'+(gpFilter==="all")+'">All plays</button><button type="button" data-pf="big" aria-pressed="'+(gpFilter==="big")+'">Big plays</button><a class="pt-hla" href="#highlights">All highlights</a></div></div>'+extra+
   (shown.length?'<ol class="pls">'+shown.map(function(x,i){return plRow(g,x,{fd:true,anim:i<3})}).join("")+'</ol>':'<p class="pt-e">'+(e?"No plays in this view yet.":"Plays show up here while VAULT is tracking this game live: scoring plays, turnovers, explosive gains and scoring runs.")+'</p>')+
-  '<p class="pt-n">Tracked from ESPN\u2019s public scoreboard, checked every 5 minutes. Football: every scoring play, plus highlight plays (20+ yard passes, 15+ yard runs, takeaways, return scores) drawn on the field. Positions other than the passer, receiver and ball carrier are illustrative. Basketball: scoring runs between updates and leading scorers. Times for turnovers, gains and runs are when VAULT spotted them.</p>'}
+  '<p class="pt-n">Tracked from ESPN\u2019s public scoreboard, checked every 5 minutes. Football: every scoring play, plus highlight plays (20+ yard passes, 15+ yard runs, takeaways, return scores) drawn on the field. Positions other than the passer, receiver and ball carrier are illustrative. Basketball: shot chart, threes, dunks and blocks from the play-by-play, plus scoring runs and leading scorers. Times for turnovers, gains and runs are when VAULT spotted them.</p>'}
 
 /* ---------- highlight plays drawn on the field (x.hl from plays.json) ---------- */
 var FX0=60,PX=6,HT=5.2;
 function fxX(y){return FX0+Math.max(0,Math.min(100,+y||0))*PX}
 function r1(n){return Math.round(n*10)/10}
-function hlTitle(h){if((h.ty==="pass")&&h.qb&&h.rc)return h.qb+" to "+h.rc;if(h.ty==="int")return h.by?h.by+" picks it off":"Interception";if(h.ty==="fum")return "Fumble · "+h.def+" ball";return h.by||h.off+" big play"}
-function hlSub(h){var y=Math.abs(h.yd||0),s=h.ty==="pass"?y+"-yard pass":h.ty==="rush"?y+"-yard run":h.ty==="ret"?y+"-yard return":h.ty==="int"?(h.qb?"Thrown by "+h.qb:"Takeaway"):"Takeaway";return s+(h.td?" · Touchdown":"")}
-function hlKind(h){return h.td?"Touchdown":h.ty==="int"||h.ty==="fum"?"Turnover":"Big play"}
+function hlTitle(h){if(h.ty==="3pt"||h.ty==="dunk")return h.by||h.tm;if(h.ty==="blk")return (h.by||h.tm)+(h.vs?" rejects "+h.vs:" with the block");if((h.ty==="pass")&&h.qb&&h.rc)return h.qb+" to "+h.rc;if(h.ty==="int")return h.by?h.by+" picks it off":"Interception";if(h.ty==="fum")return "Fumble · "+h.def+" ball";return h.by||h.off+" big play"}
+function hlSub(h){if(h.ty==="3pt")return (h.ft?h.ft+"-foot ":"")+"three"+(h.ast?" · assist "+h.ast:"");if(h.ty==="dunk")return "Slam dunk"+(h.ast?" · feed from "+h.ast:"");if(h.ty==="blk")return "Blocked shot";var y=Math.abs(h.yd||0),s=h.ty==="pass"?y+"-yard pass":h.ty==="rush"?y+"-yard run":h.ty==="ret"?y+"-yard return":h.ty==="int"?(h.qb?"Thrown by "+h.qb:"Takeaway"):"Takeaway";return s+(h.td?" · Touchdown":"")}
+function hlTeam(h){return h.tm||(h.ty==="int"||h.ty==="fum"?h.def:h.off)}
+function hlKind(h){if(h.ty==="3pt")return "Three";if(h.ty==="dunk")return "Dunk";if(h.ty==="blk")return "Block";return h.td?"Touchdown":h.ty==="int"||h.ty==="fum"?"Turnover":"Big play"}
 function seg(p){var L=[0],t=0;for(var i=1;i<p.length;i++){t+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);L.push(t)}return{L:L,t:t||1}}
 function rel(p){var o=p[0];return "M0,0 "+p.slice(1).map(function(q){return "L"+r1(q[0]-o[0])+","+r1(q[1]-o[1])}).join(" ")}
 function abs(p){return "M"+p.map(function(q){return r1(q[0])+","+r1(q[1])}).join(" L")}
@@ -182,14 +193,81 @@ function motionBall(p,times,anim,end){var b='<ellipse rx="5" ry="3.4" class="hp-
  return '<g transform="translate('+r1(p[0][0])+' '+r1(p[0][1]-10)+')">'+b+motion(p,times,true)+'</g>'}
 function miniField(g,h,anim){return fieldSVG(g).replace("</svg>",playSVG(g,h,anim)+"</svg>")}
 function lastHl(id){var l=plays(id);for(var i=l.length-1;i>=0;i--)if(l[i].hl)return l[i];return null}
-function hlCaption(g,x){var h=x.hl;return '<div class="ar-hl" style="--tc:'+tcol(g.lg,h.ty==="int"||h.ty==="fum"?h.def:h.off)+'"><em>'+esc(hlKind(h))+" · "+esc(h.t||x.t||"")+'</em><b>'+esc(hlTitle(h))+'</b><span>'+esc(hlSub(h))+'</span></div>'}
+function hlCaption(g,x){var h=x.hl;return '<div class="ar-hl" style="--tc:'+tcol(g.lg,hlTeam(h))+'"><em>'+esc(hlKind(h))+" · "+esc(h.t||x.t||"")+'</em><b>'+esc(hlTitle(h))+'</b><span>'+esc(hlSub(h))+'</span></div>'}
+
+/* ---------- basketball: shot chart + highlight plays on the court (e.sh, x.hl) ---------- */
+var HB=4.2;
+function hoopXY(side){return side==="a"?[670,180]:[50,180]}
+function courtPt(x,y,side){x=+x||0;y=+y||0;return side==="a"?[709-y*7.43,11+x*6.76]:[11+y*7.43,349-x*6.76]}
+function shotChart(g,sh,dim){if(!sh||!sh.length)return "";var o='<g class="hb-sc'+(dim?" dim":"")+'">';
+ sh.forEach(function(s){var p=courtPt(s[0],s[1],s[3]),c=tcol(g.lg,s[3]==="a"?g.a:g.h);
+  o+=s[2]?'<circle cx="'+r1(p[0])+'" cy="'+r1(p[1])+'" r="5.5" fill="'+c+'" stroke="#fff" stroke-width="1.6"/>':'<g class="hb-miss" transform="translate('+r1(p[0])+' '+r1(p[1])+')"><path d="M-4,-4L4,4M4,-4L-4,4" stroke="'+c+'" stroke-width="2.4"/></g>'});
+ return o+'</g>'}
+function hoopsSVG(g,h,anim,sh){
+ anim=anim&&!RM;var o=shotChart(g,sh,!!h);if(!h)return o;
+ var side=h.side||(h.tm===g.a?"a":"h");if(h.ty==="blk")side=side==="a"?"h":"a";var off=side==="a"?g.a:g.h,dfn=side==="a"?g.h:g.a,co=tcol(g.lg,off),cd=tcol(g.lg,dfn);
+ var hp=hoopXY(side),sp=h.x!=null?courtPt(h.x,h.y,side):[hp[0]+(side==="a"?-140:140),180];
+ if(h.ty==="dunk"&&Math.hypot(sp[0]-hp[0],sp[1]-hp[1])<40)sp=[hp[0]+(side==="a"?-150:150),hp[1]+(sp[1]<180?-70:70)];
+ var dx=side==="a"?-1:1,key=[[hp[0]+dx*60,110],[hp[0]+dx*60,250],[hp[0]+dx*150,70],[hp[0]+dx*150,290],[hp[0]+dx*200,180]];
+ var mates=key.filter(function(p){return Math.hypot(p[0]-sp[0],p[1]-sp[1])>60}).slice(0,4);
+ var ds=mates.map(function(p){return [p[0]+(hp[0]-p[0])*.18,p[1]+(hp[1]-p[1])*.18]}).concat([[sp[0]+(hp[0]-sp[0])*.16,sp[1]+(hp[1]-sp[1])*.16]]);
+ mates.forEach(function(p){o+=piece(p[0],p[1],co,"",simple(p[0],p[1],p[0]+dx*-14,p[1]+(p[1]<180?10:-10),anim,.1,.5))});
+ var blkr=null;if(h.ty==="blk"){blkr=ds.pop();}
+ ds.forEach(function(p){o+=piece(p[0],p[1],cd,"df",simple(p[0],p[1],p[0]+(sp[0]-p[0])*.25,p[1]+(sp[1]-p[1])*.25,anim,.12,.6))});
+ var who=h.ty==="blk"?h.vs:h.by;
+ if(h.ty==="dunk"){
+  var path=[sp,[sp[0]+(hp[0]-sp[0])*.5,sp[1]+(hp[1]-sp[1])*.7],[hp[0]+dx*-6,hp[1]]];
+  o+='<path class="hp-rt" pathLength="1" stroke="'+co+'" d="'+abs(path)+'">'+(anim?'<animate attributeName="stroke-dashoffset" values="1;1;0;0" keyTimes="0;.12;.62;1" dur="'+HB+'s" repeatCount="indefinite"/>':"")+'</path>';
+  o+=anim?piece(sp[0],sp[1],co,"key",hmotion(path,[[0,0],[.12,0],[.4,1],[.62,2],[1,2]]),initials(who)):piece(path[2][0],path[2][1],co,"key","",initials(who));
+  o+=hball(anim?path:null,[[0,0],[.12,0],[.4,1],[.62,2],[1,2]],path[2],-12);
+ }else{
+  var fl=arc(sp,hp,70+Math.hypot(hp[0]-sp[0],hp[1]-sp[1])*.25,12);
+  o+=piece(sp[0],sp[1],co,"key",anim?'<animateMotion dur="'+HB+'s" repeatCount="indefinite" path="M0,0 L0,-6 L0,0" keyTimes="0;.3;.4" keyPoints="0;.5;1" calcMode="linear" />':"",initials(who));
+  if(h.ty==="blk"){
+   var mid=fl[5],dflect=[mid[0]+dx*40,mid[1]+(mid[1]<180?-60:60)];
+   o+=piece(blkr[0],blkr[1],cd,"key blk",anim?hmotion([blkr,mid],[[0,0],[.2,0],[.46,1],[1,1]]):"",initials(h.by));
+   var bp=fl.slice(0,6).concat([dflect]);
+   o+='<path class="hp-air" d="'+abs(fl.slice(0,6))+'"/>';
+   o+=hball(anim?bp:null,[[0,0],[.3,0],[.46,5],[.7,6],[1,6]],dflect,0);
+  }else{
+   o+='<path class="hp-air" d="'+abs(fl)+'">'+(anim?'<animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.3;.62;.9;1" dur="'+HB+'s" repeatCount="indefinite"/>':"")+'</path>';
+   o+=hball(anim?fl:null,[[0,0],[.3,0],[.62,fl.length-1],[1,fl.length-1]],hp,0);
+  }
+ }
+ if(h.ty!=="blk"){var pts=h.ty==="3pt"?"+3":"+2";
+  o+='<circle class="hp-spot" cx="'+hp[0]+'" cy="'+hp[1]+'" r="18">'+(anim?'<animate attributeName="r" values="0;0;30;18" keyTimes="0;.6;.68;1" dur="'+HB+'s" repeatCount="indefinite"/>':"")+'</circle>'+
+  '<text class="hb-pts" x="'+hp[0]+'" y="'+(hp[1]-34)+'" fill="'+co+'">'+pts+(anim?'<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.62;.68;1" dur="'+HB+'s" repeatCount="indefinite"/>':"")+'</text>'}
+ return '<g class="hp">'+o+'</g>'}
+function hmotion(p,times){var s2=seg(p),kp=[],kt=[];times.forEach(function(k){kt.push(k[0]);kp.push(r1(s2.L[Math.min(k[1],p.length-1)]/s2.t*1000)/1000)});
+ return '<animateMotion dur="'+HB+'s" repeatCount="indefinite" calcMode="linear" path="'+rel(p)+'" keyTimes="'+kt.join(";")+'" keyPoints="'+kp.join(";")+'"/>'}
+function hball(p,times,end,lift){var b='<circle r="6" class="hb-ball"/><path class="hb-seam" d="M-6,0H6M0,-6V6"/>';
+ if(!p)return '<g transform="translate('+r1(end[0])+' '+r1(end[1]+lift)+')">'+b+'</g>';
+ return '<g transform="translate('+r1(p[0][0])+' '+r1(p[0][1]+lift)+')">'+b+hmotion(p,times)+'</g>'}
+function miniCourt(g,h,anim,sh){return courtSVG(g).replace("</svg>",hoopsSVG(g,h,anim,sh)+"</svg>")}
+function hoops(g){var l=String(g.lg).toUpperCase();return l==="NBA"||l==="CBB"}
+
+/* ---------- UFC fight card (scores.json "ufc", from the ESPN MMA scoreboard) ---------- */
+var UFC=null;
+function loadUFC(){return fetch("scores.json?u="+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){var n=JSON.stringify(d.ufc||null);if(n!==loadUFC.s){loadUFC.s=n;UFC=d.ufc||null;fightCard(true)}}).catch(function(){})}
+function fcWhen(t){try{var d=new Date(t);return d.toLocaleString([], {weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}catch(_){return ""}}
+function fcFighter(f,side,b){var fin=b.state==="post";return '<div class="fc-f '+side+(fin&&f.w?" win":"")+(fin&&!f.w&&b.f.some(function(z){return z.w})?" lose":"")+'">'+(f.fl?'<img class="fc-fl" src="'+esc(f.fl)+'" alt="'+esc(f.ct||"")+'" loading="lazy" onerror="this.remove()">':"")+'<div><b>'+esc(f.n)+'</b><small>'+esc(f.r||"")+(f.ct?" · "+esc(f.ct):"")+'</small></div>'+(fin&&f.w?'<em>W</em>':"")+'</div>'}
+function fcBout(b,i,n){var main=i===0,lv=b.state==="in",st=lv?"LIVE"+(b.rd?" · R"+b.rd:"")+(b.clk&&b.clk!=="-"?" "+b.clk:""):b.state==="post"?(b.det||"Final"):fcWhen(b.date);
+ return '<li class="fc-b'+(main?" main":"")+(lv?" live":"")+'"><div class="fc-m"><span>'+(main?"Main event · ":i===1?"Co-main · ":"")+esc(b.wc||"")+'</span><b>'+(lv?'<i></i>':"")+esc(st)+'</b></div><div class="fc-v">'+fcFighter(b.f[0]||{n:"TBA"},"l",b)+'<span class="fc-vs">VS</span>'+fcFighter(b.f[1]||{n:"TBA"},"r",b)+'</div></li>'}
+function fightCard(force){
+ var on=(location.hash||"")==="#mma",view=$("#view");if(!view)return;var box=document.getElementById("fcBox");
+ if(!on||!UFC||!UFC.bouts||!UFC.bouts.length){if(box&&!on)box.remove();return}
+ if(box&&!force&&box.parentNode)return;
+ if(!box){box=document.createElement("section");box.id="fcBox";box.className="fc";box.setAttribute("aria-label","UFC fight card")}
+ var bs=UFC.bouts.slice().reverse(),lv=bs.some(function(b){return b.state==="in"}),done=bs.filter(function(b){return b.state==="post"}).length;
+ box.innerHTML='<div class="fc-h"><div class="fc-k">'+(lv?'<i></i>Live now':UFC.state==="post"?"Results":"Next card")+' · UFC</div><h2>'+esc(UFC.name||"UFC")+'</h2><p>'+esc(fcWhen(UFC.date))+(UFC.venue?" · "+esc(UFC.venue):"")+' · '+bs.length+' bouts'+(done?" · "+done+" finished":"")+'</p></div><ol class="fc-l">'+bs.map(function(b,i){return fcBout(b,i,bs.length)}).join("")+'</ol><p class="pt-n">Fight card and results from ESPN’s public MMA scoreboard, checked every 5 minutes.</p>';
+ if(!box.parentNode||box.parentNode!==view)view.insertBefore(box,view.firstChild)}
 
 /* ---------- Highlights page (#highlights) ---------- */
 var hlLg="all",hlIO=null;
 function hlAll(){var out=[];if(!PL||!PL.games)return out;Object.keys(PL.games).forEach(function(id){var e=PL.games[id];(e.plays||[]).forEach(function(x,i){if(x.hl)out.push({id:id,e:e,x:x,i:i})})});
  out.sort(function(a,b){return String(b.x.at||"").localeCompare(String(a.x.at||""))||b.i-a.i});return out}
 function hlCard(it,k){var e=it.e,h=it.x.hl,g={lg:e.lg,a:e.a,h:e.h};
- return '<a class="hlc" href="#game-'+esc(it.id)+'" style="--tc:'+tcol(e.lg,h.ty==="int"||h.ty==="fum"?h.def:h.off)+'"><div class="hlc-f">'+miniField(g,h,true)+'</div><div class="hlc-b"><em>'+esc(e.lg)+" · "+esc(hlKind(h))+" · "+esc(h.t||"")+'</em><h3>'+esc(hlTitle(h))+'</h3><p>'+esc(hlSub(h))+'</p><small>'+esc(e.a+" "+(h.sa!=null?h.sa:e.as)+" · "+e.h+" "+(h.sh!=null?h.sh:e.hs))+(/LIVE|HALF/.test(e.st||"")?' · <b class="lv">LIVE</b>':"")+'</small></div></a>'}
+ return '<a class="hlc" href="#game-'+esc(it.id)+'" style="--tc:'+tcol(e.lg,hlTeam(h))+'"><div class="hlc-f">'+(hoops(g)?miniCourt(g,h,true):miniField(g,h,true))+'</div><div class="hlc-b"><em>'+esc(e.lg)+" · "+esc(hlKind(h))+" · "+esc(h.t||"")+'</em><h3>'+esc(hlTitle(h))+'</h3><p>'+esc(hlSub(h))+'</p><small>'+logoImg(e.lg,e.a,"sm",40)+esc(e.a+" "+(h.sa!=null?h.sa:e.as)+" · ")+logoImg(e.lg,e.h,"sm",40)+esc(e.h+" "+(h.sh!=null?h.sh:e.hs))+(/LIVE|HALF/.test(e.st||"")?' · <b class="lv">LIVE</b>':"")+'</small></div></a>'}
 function hlFill(){var box=document.getElementById("hlGrid");if(!box)return;var l=hlAll(),lgs={};l.forEach(function(it){lgs[it.e.lg]=1});
  var f=$("#hlF");if(f)f.innerHTML=["all"].concat(Object.keys(lgs)).map(function(k){return '<button type="button" data-hl="'+esc(k)+'" aria-pressed="'+(hlLg===k)+'">'+(k==="all"?"All":esc(k))+'</button>'}).join("");
  var shown=l.filter(function(it){return hlLg==="all"||it.e.lg===hlLg}).slice(0,40);
@@ -197,7 +275,7 @@ function hlFill(){var box=document.getElementById("hlGrid");if(!box)return;var l
  if(hlIO)hlIO.disconnect();if(!window.IntersectionObserver)return;
  hlIO=new IntersectionObserver(function(en){en.forEach(function(x){var sv=x.target.querySelector("svg");if(!sv||!sv.pauseAnimations)return;if(x.isIntersecting)sv.unpauseAnimations();else sv.pauseAnimations()})},{rootMargin:"80px"});
  box.querySelectorAll(".hlc-f").forEach(function(el){hlIO.observe(el)})}
-window.VHL={view:function(){return '<section class="hlv"><header class="hlv-h"><div class="hlv-k"><i></i>Live highlights</div><h1>Big plays, on the field</h1><p>Every 20+ yard pass, 15+ yard run, takeaway and return score VAULT tracks, drawn on the field with the players who made it.</p><div class="hlv-f" id="hlF" role="group" aria-label="Filter by league"></div></header><div class="hlv-g" id="hlGrid"></div><p class="pt-n">Plays and names from ESPN’s public play-by-play. Player positions other than the ball carrier, passer and receiver are illustrative.</p></section>'},
+window.VHL={view:function(){return '<section class="hlv"><header class="hlv-h"><div class="hlv-k"><i></i>Live highlights</div><h1>Big plays, on the field</h1><p>Football: every 20+ yard pass, 15+ yard run, takeaway and return score. Hoops: threes, dunks and blocks. Each one drawn on the field or court with the players who made it.</p><div class="hlv-f" id="hlF" role="group" aria-label="Filter by league"></div></header><div class="hlv-g" id="hlGrid"></div><p class="pt-n">Plays and names from ESPN’s public play-by-play. Player positions other than the ball carrier, passer and receiver are illustrative.</p></section>'},
  after:function(){hlFill();var f=$("#hlF");if(f&&!f._b){f._b=1;f.addEventListener("click",function(ev){var b=ev.target.closest("[data-hl]");if(b){hlLg=b.getAttribute("data-hl");hlFill()}})}}};
 
 /* ---------- Arena ---------- */
@@ -233,7 +311,7 @@ function current(){var l=games();if(!l.length)return null;var g=null;for(var i=0
 if(!g){var lv=l.filter(isLive),pool=lv.length?lv:l;g=pool.slice().sort(function(x,y){return pr(x)-pr(y)})[0];sel=gid(g)}return g}
 var lastKind=null,lastSel=null;
 function render(full){
- if(!AR)return;
+ if(!AR)return;syncMeta();
  AR.hidden=!onArenaPage()||!games().length;if(AR.hidden)return;
  var g=current();if(!g)return;
  var fb=football(g),kind=(fb?"f":"c")+sel,w=$("#arWorld");
@@ -242,7 +320,7 @@ function render(full){
   w.className="ar-world"+(fb?"":" court");
   w.innerHTML='<div class="ar-ground"></div>'+
    '<div class="ar-st n" style="--c1:'+ch+';--c2:#d9e0dc"></div><div class="ar-st s" style="--c1:'+ca+';--c2:#d9e0dc"></div><div class="ar-st w" style="--c1:'+ca+';--c2:'+ch+'"></div><div class="ar-st e" style="--c1:'+ch+';--c2:'+ca+'"></div>'+
-   '<div class="ar-floor">'+(fb?fieldSVG(g)+'<svg class="ar-play" id="arPlay" viewBox="0 0 720 360" preserveAspectRatio="none" aria-hidden="true"></svg>':courtSVG(g))+'</div><div class="ar-pool"></div>'+
+   '<div class="ar-floor">'+(fb?fieldSVG(g):courtSVG(g))+'<svg class="ar-play" id="arPlay" viewBox="0 0 720 360" preserveAspectRatio="none" aria-hidden="true"></svg>'+'</div><div class="ar-pool"></div>'+
    '<div class="ar-lead l" style="--lc:'+ca+'"></div><div class="ar-lead r" style="--lc:'+ch+'"></div>'+
    '<div class="ar-goal l">'+goalSVG(fb)+'</div><div class="ar-goal r">'+goalSVG(fb)+'</div>'+
    '<div class="ar-tw a"><i></i></div><div class="ar-tw b"><i></i></div><div class="ar-tw c"><i></i></div><div class="ar-tw d"><i></i></div>'+
@@ -258,17 +336,17 @@ function render(full){
  AR.querySelectorAll(".ar-lead").forEach(function(x){x.classList.toggle("on",!!lead&&x.classList.contains(lead)&&isLive(g))});
  side(g)}
 function arPlay(g){
- var sv=document.getElementById("arPlay"),cap=document.getElementById("arHlc");if(!football(g)){if(cap)cap.innerHTML="";return}
- var x=lastHl(gid(g)),k=x?gid(g)+"|"+x.key:"";if(k===arPlay.k)return;arPlay.k=k;
+ var sv=document.getElementById("arPlay"),cap=document.getElementById("arHlc");if(!football(g)&&!hoops(g)){if(cap)cap.innerHTML="";return}
+ var id=gid(g),e=PL&&PL.games&&PL.games[id],x=lastHl(id),k=x?id+"|"+x.key:id+"|"+(e&&e.sh?e.sh.length:0);if(k===arPlay.k)return;arPlay.k=k;
  if(cap)cap.innerHTML=x?hlCaption(g,x):"";if(!sv)return;
- sv.innerHTML=x?playSVG(g,x.hl,true):"";try{sv.setCurrentTime(0)}catch(_){}}
+ sv.innerHTML=hoops(g)?hoopsSVG(g,x&&x.hl,true,e&&e.sh):x?playSVG(g,x.hl,true):"";try{sv.setCurrentTime(0)}catch(_){}}
 function feed(g){var l=plays(gid(g)).slice(-4).reverse();return '<div class="ar-feed"><div class="ar-fh">Play tracker</div>'+(l.length?'<ol class="pls">'+l.map(function(x){return plRow(g,x)}).join("")+'</ol>':'<p class="pt-e">Scoring plays, turnovers and big gains land here as they happen.</p>')+'</div>'}
 function side(g){
  var lv=isLive(g),aw=g.as>g.hs,hw=g.hs>g.as,an=nm(g,"a"),hn=nm(g,"h"),d=Math.abs(g.as-g.hs);
  var sum=lv?(d?(aw?an:hn)+" lead by "+d:"Tied at "+g.as):(d?(aw?an:hn)+" won "+Math.max(g.as,g.hs)+"–"+Math.min(g.as,g.hs):"Ended tied "+g.as+"–"+g.hs);
- var row=function(k,up){var r=g[k+"r"];return '<div class="ar-row'+(up?" up":"")+'"><u style="--tc:'+tcol(g.lg,g[k])+'"></u><div><h3>'+esc(nm(g,k))+'</h3><small>'+esc(g[k])+(r?" · "+esc(r):"")+(k==="h"?" · home":"")+'</small></div><strong>'+esc(g[k+"s"])+'</strong></div>'};
+ var row=function(k,up){var r=g[k+"r"];return '<div class="ar-row'+(up?" up":"")+'"><u style="--tc:'+tcol(g.lg,g[k])+'"></u>'+logoImg(g.lg,g[k],"lg",120)+'<div><h3>'+esc(nm(g,k))+'</h3><small>'+esc(g[k])+(r?" · "+esc(r):"")+(k==="h"?" · home":"")+'</small></div><strong>'+esc(g[k+"s"])+'</strong></div>'};
  var l=games().slice(0,14);
- var chips=l.length>1?'<div class="ar-chips" role="group" aria-label="Pick a game">'+l.map(function(x){var id=gid(x),on=id===sel;return '<button type="button" class="ar-chip'+(isLive(x)?" live":"")+'" data-ar="'+esc(id)+'" aria-pressed="'+on+'"><em>'+esc(x.lg)+" · "+esc(clock(x))+'</em><span>'+esc(x.a)+" "+esc(x.as)+'</span><span>'+esc(x.h)+" "+esc(x.hs)+'</span></button>'}).join("")+'</div>':"";
+ var chips=l.length>1?'<div class="ar-chips" role="group" aria-label="Pick a game">'+l.map(function(x){var id=gid(x),on=id===sel;return '<button type="button" class="ar-chip'+(isLive(x)?" live":"")+'" data-ar="'+esc(id)+'" aria-pressed="'+on+'"><em>'+esc(x.lg)+" · "+esc(clock(x))+'</em><span>'+logoImg(x.lg,x.a,"sm",40)+esc(x.a)+" "+esc(x.as)+'</span><span>'+logoImg(x.lg,x.h,"sm",40)+esc(x.h)+" "+esc(x.hs)+'</span></button>'}).join("")+'</div>':"";
  var sd=$("#arSide"),keep=sd.querySelector(".ar-chips"),sl=keep?keep.scrollLeft:0;
  sd.innerHTML='<div class="ar-kick'+(lv?"":" fin")+'"><i></i>'+(lv?"Live now":"Latest final")+" · "+esc(g.lg)+(g.note?" · "+esc(g.note):"")+" · "+esc(clock(g))+'</div>'+
   row("a",lv?false:aw)+row("h",lv?false:hw)+'<p class="ar-sum">'+esc(sum)+'</p>'+latestCall(g)+feed(g)+
@@ -387,6 +465,10 @@ function calls(e,x){
  else if(x.k==="to"){var n=/turnover #(\d+)/i.exec(x.x);R("TURNOVER! The "+N+" take it away!",1);I(pick(["Huge for that "+N+" defense. Now go cash it in.","Possession is everything in this one, and the "+N+" just got an extra one."],k)+(n?" That's turnover number "+n[1]+" on the day.":""))}
  else if(x.k==="big"){var b=/(\d+)-yard (run|catch)/i.exec(x.x);R(b?"Look out! "+b[1]+"-yard "+b[2]+" for the "+N+"!":cleanDesc(x.x),1);I(b?"Longest "+b[2]+" of the day for them. That changes field position in a hurry.":"That's a chunk play.")}
  else if(x.k==="run"){var r=/(\d+)-0 burst/.exec(x.x);R("The "+N+" are rolling, "+(r?r[1]+"-0":"")+" burst!",x.big);I(x.big?pick(["Somebody call a timeout!","The building is waking up for the "+N+"."],k):S?S+".":"Nice little spurt.")}
+ else if(x.k==="three"){var h3=x.hl||{};R(pick(["BANG! ","From downtown! ","Splash! "],k)+(h3.by||N)+(h3.ft?" from "+h3.ft+" feet!":" for three!"),x.big);if(S)I(S+(h3.ast?". Nice find by "+h3.ast+".":"."))}
+ else if(x.k==="dunk"){var hd=x.hl||{};R(pick(["OH, HE THREW IT DOWN! ","SLAM! ","Rim-rattler! "],k)+(hd.by||N)+"!",1);I(hd.ast?"What a feed from "+hd.ast+".":pick(["You felt that one in the cheap seats.","Pure power."],k))}
+ else if(x.k==="block"){var hb=x.hl||{};R(pick(["Get that outta here! ","REJECTED! ","Not in my house! "],k)+(hb.by||N)+(hb.vs?" sends back "+hb.vs+".":"."),1);I("That's a statement at the rim.")}
+ else if(x.k==="big"&&x.hl&&x.hl.qb){R("Look out! "+cleanDesc(x.x),1);I(pick(["That's a chunk play.","Flipped the field in one snap."],k))}
  else if(x.k==="score"){R("Back and forth we go."+(S?" "+S+".":""))}
  else if(x.k==="half"){R("That'll do it for the first half. "+cleanDesc(x.x.replace(/^Halftime:\s*/i,"")));I("Plenty to talk about at the break.")}
  else if(x.k==="final"){R("And that's the ballgame! "+cleanDesc(x.x.replace(/^Final:\s*/i,"")),1);I(x.tm?"The "+nick(teamFull(e,x.tm))+" get it done. What a game.":"What a game.")}
@@ -559,9 +641,9 @@ function parallax(){if(RM)return;var y=window.scrollY;if(Math.abs(y-parY)<1)retu
 function boot(){
  if(!A()||!A().D){setTimeout(boot,200);return}
  if(!RM)document.documentElement.classList.add("fx-anim");build();tick();decorate();bottomLine();reveal();flyIn();if(AR&&RM)AR.classList.add("settled");
- var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();booth();gamePage();reveal();if((location.hash||"")==="#highlights"&&document.getElementById("hlGrid")&&!document.getElementById("hlGrid").children.length)window.VHL.after()});mo.observe(v,{childList:true})}
+ var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();booth();gamePage();reveal();fightCard(false);if((location.hash||"")==="#highlights"&&document.getElementById("hlGrid")&&!document.getElementById("hlGrid").children.length)window.VHL.after()});mo.observe(v,{childList:true})}
  setInterval(tick,1000);
- loadPlays();setInterval(function(){if(!document.hidden)loadPlays()},15000);
+ loadPlays();setInterval(function(){if(!document.hidden)loadPlays()},15000);loadUFC();setInterval(function(){if(!document.hidden)loadUFC()},60000);
  window.addEventListener("hashchange",function(){gpFilter="all";render(true);boothRoute();setTimeout(function(){booth();gamePage()},50)});boothRoute();var nv=$("#nav");if(nv){var nmo=new MutationObserver(function(){if(!nv.querySelector("a.bth-nav"))navLink()});nmo.observe(nv,{childList:true})}var dn=$("#drawerNav");if(dn){var dmo=new MutationObserver(function(){if(!dn.querySelector("a.bth-nav"))navLink()});dmo.observe(dn,{childList:true})}window.addEventListener("scroll",function(){requestAnimationFrame(parallax)},{passive:true});if(window.speechSynthesis)speechSynthesis.onvoiceschanged=function(){bpVoices=null}}
 boot();
 }catch(err){if(window.console)console.warn("VAULT FX off:",err)}

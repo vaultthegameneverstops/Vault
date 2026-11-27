@@ -268,6 +268,115 @@ def leaders(comp):
     return out if len(out) == 2 else None
 
 
+def team_meta(c, side):
+    """logo, colors and record for one side of a scoreboard event."""
+    t = c.get("team") or {}
+    out = {}
+    if t.get("logo"):
+        out[side + "lg"] = t["logo"]
+    if t.get("color"):
+        out[side + "c"] = "#" + t["color"].lstrip("#")
+    if t.get("alternateColor"):
+        out[side + "c2"] = "#" + t["alternateColor"].lstrip("#")
+    for r in c.get("records") or []:
+        if r.get("type") == "total" or r.get("name") == "overall":
+            out[side + "r"] = r.get("summary")
+            break
+    return out
+
+
+def recent_start(start):
+    try:
+        st0 = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
+        return (datetime.datetime.now(datetime.timezone.utc) - st0).total_seconds() < 5 * 3600
+    except Exception:
+        return False
+
+
+def hoops_period(p, key):
+    n = num((p.get("period") or {}).get("number"))
+    if key == "ncaamb":
+        return "H%d" % n if n <= 2 else "OT%d" % (n - 2)
+    return "Q%d" % n if n <= 4 else "OT%d" % (n - 4)
+
+
+P_MAKE = re.compile(r"^(.+?)\s+makes\s+(?:(\d+)-foot\s+)?(.*?)(?:\s*\((.+?) assists?\))?\s*$")
+P_BLK = re.compile(r"^(.+?)\s+blocks\s+(.+?)\s*'s")
+
+
+def hoops_extras(path, ev_id, key, a_id, h_id, a_ab, h_ab):
+    """Shot chart (last 90 field-goal tries) and highlight plays (made threes, dunks, blocks)."""
+    s = get(BASE + path + "/summary?event=" + ev_id)
+    ab = {a_id: a_ab, h_id: h_ab}
+    shots, hl = [], []
+    for p in s.get("plays") or []:
+        tid = str((p.get("team") or {}).get("id"))
+        if tid not in ab:
+            continue
+        ty = ((p.get("type") or {}).get("text") or "")
+        txt = (p.get("text") or "").strip()
+        co = p.get("coordinate") or {}
+        x, y = co.get("x"), co.get("y")
+        side = "a" if tid == a_id else "h"
+        made = bool(p.get("scoringPlay"))
+        val = num(p.get("scoreValue"))
+        if p.get("shootingPlay") and "FreeThrow" not in ty and "free throw" not in txt.lower() and x is not None and y is not None and 0 <= num(x, -1) <= 50 and 0 <= num(y, -1) <= 47:
+            shots.append([num(x), num(y), 1 if made else 0, side, val])
+        kind = None
+        if made and val == 3:
+            kind = "3pt"
+        elif made and ("Dunk" in ty or "dunk" in txt.lower() or "alley oop" in txt.lower()):
+            kind = "dunk"
+        elif "Block" in ty:
+            kind = "blk"
+        if not kind:
+            continue
+        h = {"id": str(p.get("id")), "ty": kind, "t": hoops_period(p, key) + " " + ((p.get("clock") or {}).get("displayValue") or ""),
+             "tm": ab[tid], "side": side, "sa": num(p.get("awayScore")), "sh": num(p.get("homeScore")), "txt": txt[:200]}
+        if x is not None and y is not None:
+            h["x"], h["y"] = num(x), num(y)
+        if kind == "blk":
+            m = P_BLK.search(txt)
+            if m:
+                h["by"], h["vs"] = m.group(1).strip(), m.group(2).strip()
+        else:
+            m = P_MAKE.search(txt)
+            if m:
+                h["by"] = m.group(1).strip()
+                if m.group(2):
+                    h["ft"] = num(m.group(2))
+                if m.group(4):
+                    h["ast"] = m.group(4).strip()
+        hl.append(h)
+    return shots[-90:], hl[-30:]
+
+
+def ufc_card():
+    """Next or current UFC event: bouts with fighters, records, flags, status and results."""
+    sb = get(BASE + "mma/ufc/scoreboard")
+    evs = sb.get("events") or []
+    if not evs:
+        return None
+    ev = evs[0]
+    bouts = []
+    for c in ev.get("competitions") or []:
+        st = (c.get("status") or {})
+        t = st.get("type") or {}
+        fs = []
+        for f in sorted(c.get("competitors") or [], key=lambda z: num(z.get("order"))):
+            a = f.get("athlete") or {}
+            rec = next((r.get("summary") for r in f.get("records") or [] if r.get("type") == "total"), None)
+            fs.append({"n": a.get("displayName") or a.get("fullName") or "?", "r": rec, "fl": ((a.get("flag") or {}).get("href")),
+                       "ct": ((a.get("flag") or {}).get("alt")), "w": bool(f.get("winner"))})
+        bouts.append({"id": str(c.get("id")), "wc": ((c.get("type") or {}).get("abbreviation")), "date": c.get("date"),
+                      "state": t.get("state"), "det": t.get("shortDetail") or t.get("detail"), "rd": num(st.get("period")),
+                      "clk": st.get("displayClock"), "f": fs})
+    bouts.sort(key=lambda b: b.get("date") or "")
+    return {"id": str(ev.get("id")), "name": ev.get("name"), "date": ev.get("date"),
+            "state": ((ev.get("status") or {}).get("type") or {}).get("state"),
+            "venue": (((ev.get("competitions") or [{}])[0].get("venue") or {}).get("fullName")), "bouts": bouts}
+
+
 def league(key, path, q):
     url = BASE + path + "/scoreboard" + ("?" + q if q else "")
     sb = get(url)
@@ -292,6 +401,8 @@ def league(key, path, q):
             "status": st, "clock": stt.get("displayClock", ""), "quarter": num(stt.get("period")),
             "start": ev.get("date", ""),
         }
+        g.update(team_meta(away, "a"))
+        g.update(team_meta(home, "h"))
         if key in FOOTBALL and st in ("inprogress", "halftime", "closed"):
             try:
                 g["scoring"], fs, g["hl"] = football_extras(path, g["id"], str(ta.get("id")), str(th.get("id")), g["a"], g["h"])
@@ -303,6 +414,11 @@ def league(key, path, q):
             bs = leaders(comp)
             if bs:
                 g["bs"] = bs
+            if st in ("inprogress", "halftime") or (st == "closed" and recent_start(g["start"])):
+                try:
+                    g["sh"], g["hl"] = hoops_extras(path, g["id"], key, str(ta.get("id")), str(th.get("id")), g["a"], g["h"])
+                except Exception as e:
+                    print("summary %s %s failed: %s" % (key, g["id"], e), file=sys.stderr)
         games.append(g)
     return games
 
@@ -322,8 +438,14 @@ def main():
     if not fetched:
         print("NO_DATA", file=sys.stderr)
         sys.exit(1)
+    ufc = None
+    try:
+        ufc = ufc_card()
+        print("ufc: %s" % ((ufc or {}).get("name")))
+    except Exception as e:
+        print("ufc failed: %s" % e, file=sys.stderr)
     with open(os.path.join(out_dir, "pass.json"), "w") as f:
-        json.dump({"fetched": fetched, "games": games,
+        json.dump({"fetched": fetched, "games": games, "ufc": ufc,
                    "at": datetime.datetime.now(datetime.timezone.utc).isoformat()}, f)
 
 
