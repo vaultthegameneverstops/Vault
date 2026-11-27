@@ -89,7 +89,7 @@ def longest(players_side, group):
 
 def football_extras(path, ev_id, a_id, h_id, a_ab, h_ab):
     s = get(BASE + path + "/summary?event=" + ev_id)
-    scoring = []
+    scoring, sline = [], {}
     for p in s.get("scoringPlays") or []:
         per = period_label((p.get("period") or {}).get("number"))
         clk = (p.get("clock") or {}).get("displayValue", "")
@@ -97,7 +97,9 @@ def football_extras(path, ev_id, a_id, h_id, a_ab, h_ab):
         if not txt:
             continue
         tag = ((p.get("type") or {}).get("text") or "").strip()
-        scoring.append("%s %s: %s%s (%s %d-%d %s)" % (per, clk, txt, " [" + tag + "]" if tag else "", a_ab, num(p.get("awayScore")), num(p.get("homeScore")), h_ab))
+        line = "%s %s: %s%s (%s %d-%d %s)" % (per, clk, txt, " [" + tag + "]" if tag else "", a_ab, num(p.get("awayScore")), num(p.get("homeScore")), h_ab)
+        scoring.append(line)
+        sline[str(p.get("id"))] = "s|" + line.strip()
     fs = {}
     box = s.get("boxscore") or {}
     teams = {str((t.get("team") or {}).get("id")): t for t in box.get("teams") or []}
@@ -114,7 +116,7 @@ def football_extras(path, ev_id, a_id, h_id, a_ab, h_ab):
             "lc": longest(p, "receiving"),
         }
     names = roster(box)
-    hl = highlights(s, a_id, h_id, a_ab, h_ab, names)
+    hl = highlights(s, a_id, h_id, a_ab, h_ab, names, sline)
     return scoring, (fs if len(fs) == 2 else None), hl
 
 
@@ -174,7 +176,7 @@ def clean(text):
     return t.strip()
 
 
-def highlights(s, a_id, h_id, a_ab, h_ab, names):
+def highlights(s, a_id, h_id, a_ab, h_ab, names, sline=None):
     drives = s.get("drives") or {}
     dl = list(drives.get("previous") or [])
     if drives.get("current"):
@@ -218,6 +220,8 @@ def highlights(s, a_id, h_id, a_ab, h_ab, names):
             dirn = 1 if off == a_id else -1
             h = {"id": pid, "ty": kind, "t": period_label((p.get("period") or {}).get("number")) + " " + ((p.get("clock") or {}).get("displayValue") or ""),
                  "off": ab[off], "def": ab[dfn], "s": s0, "yd": yd, "td": td, "sa": num(p.get("awayScore")), "sh": num(p.get("homeScore")), "txt": txt[:220]}
+            if sline and pid in sline:
+                h["sk"] = sline[pid]
             lane = re.search(r"\b(left|right|middle)\b", txt)
             h["ln"] = {"left": -1, "right": 1}.get(lane.group(1), 0) if lane else 0
             if kind in ("pass", "rush", "ret"):

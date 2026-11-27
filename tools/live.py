@@ -171,13 +171,17 @@ def main():
             # highlight plays with names + field spots (ESPN drives). Scoring highlights attach to the scoring row.
             for hh in g.get("hl") or []:
                 tgt = None
-                if hh.get("td") or hh["ty"] == "ret":
+                if hh.get("sk"):
+                    tgt = next((it for it in pl if it.get("key") == hh["sk"]), None)
+                if tgt is None and (hh.get("td") or hh["ty"] == "ret"):
                     for it in pl:
                         if it.get("t") == hh["t"] and it.get("k") in ("td", "sf") and not it.get("hl"):
                             tgt = it
                             break
                 if tgt is not None:
                     tgt["hl"] = hh
+                    stale = "hl|" + hh["id"]
+                    pl[:] = [it for it in pl if it.get("key") != stale]
                     continue
                 tm = hh["def"] if hh["ty"] in ("int", "fum") else hh["off"]
                 add({"key": "hl|" + hh["id"], "t": hh["t"], "x": headline(hh), "tm": tm,
