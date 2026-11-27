@@ -346,7 +346,7 @@ function gameColumns(){var h=(location.hash||"").slice(1);if(h.indexOf("game-")!
 
 /* ---------- Arena ---------- */
 var AR=null,sel=null,st={rx:58,rz:-16,drag:false,idle:0,t0:performance.now(),vis:true},seen={};
-function onArenaPage(){var h=(location.hash||"#home").slice(1);return h===""||h==="home"||h==="scores"}
+function onArenaPage(){return false}/* the 3D stadium no longer sits on top of Home and Scores */
 function build(){
  var app=$("#app"),view=$("#view");if(!app||!view)return;
  AR=document.createElement("section");AR.className="arena";AR.id="arena";AR.setAttribute("aria-label","Live Arena");
@@ -618,7 +618,7 @@ function latestCall(g){var id=gid(g),e=PL&&PL.games&&PL.games[id];if(!e||!e.play
 
 /* ---------- BottomLine crawl ---------- */
 var blSig="";
-function bottomLine(){
+function bottomLine(){var old=document.getElementById("bl");if(old)old.remove();return;/* floating crawl removed */
  var bl=document.getElementById("bl");
  if(!bl){bl=document.createElement("div");bl.id="bl";bl.className="bl";bl.setAttribute("role","region");bl.setAttribute("aria-label","VAULT BottomLine");bl.innerHTML='<div class="bl-tag"><i></i>BottomLine</div><div class="bl-wrap"><div class="bl-track" id="blTrack"></div></div>';document.body.appendChild(bl)}
  var items=[],a=A();
@@ -636,12 +636,12 @@ function bottomLine(){
 var RVSEL=".hero,.card,.sc,.dcard,.sec-h,.box,.gm,.pt,.booth,.page-h,.page-s,.prose p,.art-hero,.quiz,.vx-card,.vx-h2,.foot-in";
 var rvIO=null;
 function words(el){if(el._wd||el.children.length)return;var t=el.textContent;if(!t||t.length>140)return;el._wd=1;el.innerHTML=t.split(/(\s+)/).map(function(w,i){return /^\s+$/.test(w)?w:'<span class="wd" style="--d:'+(i*0.035).toFixed(3)+'s">'+esc(w)+'</span>'}).join("");el.classList.add("wds")}
-function reveal(root){
+function reveal(root){return;/* no scroll-in animations */
  if(RM)return;var v=$("#view");if(!v||v.classList.contains("noanim"))return;
  if(!rvIO)rvIO=new IntersectionObserver(function(en){var k=0;en.forEach(function(x){if(!x.isIntersecting)return;var el=x.target;rvIO.unobserve(el);el.style.transitionDelay=(k++*0.07).toFixed(2)+"s";el.classList.add("in");setTimeout(function(){el.classList.remove("rv","in");el.style.transitionDelay=""},1600)})},{rootMargin:"0px 0px -6% 0px",threshold:.08});
  (root||v).querySelectorAll(RVSEL).forEach(function(el){if(el._rv)return;el._rv=1;el.classList.add("rv");rvIO.observe(el)});
  v.querySelectorAll(".page-h").forEach(function(h){words(h);h.classList.add("wds");setTimeout(function(){h.classList.add("in")},120)})}
-function flyIn(){if(RM||!AR)return;var t0=performance.now(),from={rx:84,rz:-150},to={rx:58,rz:-16},w=$("#arWorld");st.drag=true;
+function flyIn(){return;if(RM||!AR)return;var t0=performance.now(),from={rx:84,rz:-150},to={rx:58,rz:-16},w=$("#arWorld");st.drag=true;
  (function step(now){var p=Math.min(1,(now-t0)/2400),e=1-Math.pow(1-p,4);st.rx=from.rx+(to.rx-from.rx)*e;st.rz=from.rz+(to.rz-from.rz)*e;if(w)w.style.setProperty("--fly",(0.55+0.45*e).toFixed(3));apply();if(p<1)requestAnimationFrame(step);else{st.drag=false;st.idle=performance.now();setTimeout(function(){AR.classList.add("settled")},1200)}})(t0)}
 
 /* ---------- Broadcast play-by-play: every snap / possession from e.rp, written like a TV booth ---------- */
@@ -1041,7 +1041,7 @@ function navLink(){
   if(!a){a=document.createElement("a");a.className="bth-nav";a.href="#booth";a.innerHTML='<i></i>The Booth';var h=n.querySelector('a[href="#scores"]');if(h&&h.nextSibling)n.insertBefore(a,h.nextSibling);else n.appendChild(a)}
   a.classList.toggle("on",on);if(on)n.querySelectorAll("a.on").forEach(function(x){if(x!==a)x.classList.remove("on")})})}
 var parY=0;
-function parallax(){if(RM)return;var y=window.scrollY;if(Math.abs(y-parY)<1)return;parY=y;var h=document.querySelector("#view .hero .art");if(h){var r=h.getBoundingClientRect();if(r.bottom>0&&r.top<innerHeight)h.style.setProperty("--py",(r.top*-0.12).toFixed(1)+"px")}}
+function parallax(){return;if(RM)return;var y=window.scrollY;if(Math.abs(y-parY)<1)return;parY=y;var h=document.querySelector("#view .hero .art");if(h){var r=h.getBoundingClientRect();if(r.bottom>0&&r.top<innerHeight)h.style.setProperty("--py",(r.top*-0.12).toFixed(1)+"px")}}
 
 /* ---------- boot ---------- */
 function boot(){

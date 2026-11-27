@@ -99,18 +99,13 @@ function TeamArt(s){
   if(s.sport==="mma"){var u=TEAMS&&TEAMS.ufc;return u?'<div class="tart ufc"><i style="--gc:#d20a0a"></i><img src="'+esc(logoSrc(u,400))+'" alt="UFC" loading="lazy" onerror="this.parentNode.remove()"></div>':""}
   var ts=storyTeams(s);if(!ts.length)return "";
   return '<div class="tart n'+ts.length+'">'+ts.map(function(t,i){return (i?'<b class="tvs">VS</b>':"")+'<span class="tlg"><i style="--gc:'+esc(t.c)+'"></i><img src="'+esc(logoSrc(t.lg,400))+'" alt="'+esc(t.n)+'" loading="lazy" onerror="this.parentNode.remove()"></span>'}).join("")+'</div>'}
+function tcase(t){return String(t||"").toLowerCase().replace(/(^|[\s'’-])([a-z])/g,function(m,p,c){return p+c.toUpperCase()})}
 function Art(s,cls){
-  var nm=s.name||NAMES[s.id];
-  var v=(s.id.length+s.id.charCodeAt(0))%3,P=getPhoto(s.id)||(s.img?{src:s.img,credit:s.credit,cutout:s.cutout,pos:s.imgPos,who:nm?nm.join(" "):""}:null);
-  var word=nm?'<span class="w nm" aria-hidden="true"><i>'+nm[0]+'</i>'+nm[1]+'</span>':'<span class="w" aria-hidden="true">'+esc(s.art||s.kicker)+'</span>';
-  var body;
-  if(P&&!P.cutout)body='<img class="photo" src="'+esc(P.src)+'" alt="'+esc(s.title)+'" loading="lazy">';
-  else body=(P?'<img class="cutout" src="'+esc(P.src)+'" alt="'+esc(s.title)+'">':TeamArt(s)||'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>');
-  var cap=P?(P.credit?'<span class="cap">Photo: '+esc(P.credit)+'</span>':""):'<span class="cap">Original graphic</span>';
-  var sl=slime(s.id,s.sport,s.pal),acc=' style="--acc:'+sl.acc+';--blobs:'+sl.bg+'"';
-  var who=P&&P.who?String(P.who).slice(0,40):"",fr=who?'<span class="pframe" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="plate"><b>'+esc(who.toUpperCase())+'</b>'+(s.kicker?'<em>'+esc(s.kicker)+'</em>':"")+'</span>':"";
-  if(P&&!P.cutout&&P.pos)body=body.replace('class="photo"','class="photo" style="object-position:'+(/%/.test(String(P.pos))?esc(P.pos):"50% "+(+P.pos||22)+"%")+'"');
-  return '<div class="art s-'+s.sport+' v'+v+(P&&!P.cutout?" has-photo":"")+' '+(cls||"")+'"'+acc+'>'+SCENE[s.sport]+(P&&!P.cutout?"":word)+body+(P&&!P.cutout&&!who?'<span class="w nm shade" aria-hidden="true">'+(nm?'<i>'+nm[0]+'</i>'+nm[1]:esc(s.art||s.kicker))+'</span>':"")+fr+'<span class="sp">'+SPLAB[s.sport]+'</span>'+cap+'</div>';
+  var nm=s.name||NAMES[s.id],pal=s.pal||PAL[s.id]||PAL["_"+s.sport]||["#1a1c20","#2f6fed","#2f6fed","#eeeeee"],ts=TEAMS?storyTeams(s):[];
+  var tc=s.sport==="mma"?"#5a1014":(ts.length&&ts[0].c?ts[0].c:pal[1]);
+  var mark=TeamArt(s)||'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>';
+  var who=nm?tcase(nm.join(" ")):"";
+  return '<div class="art ed s-'+s.sport+' '+(cls||"")+'" style="--tc:'+esc(tc)+'"><div class="ed-mark">'+mark+'</div>'+(who?'<span class="ed-who">'+esc(who)+'</span>':"")+'<span class="sp">'+SPLAB[s.sport]+'</span></div>';
 }
 function Label(s){
   var l=s.label,c="";
@@ -122,7 +117,8 @@ function Label(s){
 function asOf(s){var t=s.updated?new Date(s.updated):(D&&D.updatedAt&&s.time&&String(D.asOf||"").indexOf(s.time)===0?new Date(D.updatedAt):null);if(t&&!isNaN(t))return "As of "+t.toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});return "As of "+(s.time||"")}
 function Meta(s){return '<div class="meta">'+Label(s)+'<span class="kick">'+esc(s.kicker)+' · '+esc(asOf(s))+'</span></div>'}
 function Card(s,i){return '<article class="card" data-go="'+s.id+'" tabindex="0" role="link" aria-label="'+esc(s.title)+'" style="animation-delay:'+Math.min(i,10)*45+'ms">'+Art(s)+'<div class="card-b">'+Meta(s)+'<h3>'+esc(s.title)+'</h3><p>'+esc(s.dek)+'</p><div class="when"><span>'+esc((SPORTS[s.sport]||s.sport))+'</span>'+SaveBtn(s.id,true)+'</div></div></article>'}
-function Hero(s){return '<article class="hero hero-a" data-go="'+s.id+'" tabindex="0" role="link" aria-label="'+esc(s.title)+'">'+Art(s)+'<div class="hero-b">'+Meta(s)+'<h1>'+esc(s.title)+'</h1><p>'+esc(s.dek)+'</p><span class="cta">Read the story →</span></div></article>'}
+function Hero(s){return '<article class="hero hero-a lead" data-go="'+s.id+'" tabindex="0" role="link" aria-label="'+esc(s.title)+'">'+Art(s)+'<div class="hero-b">'+Meta(s)+'<h1>'+esc(s.title)+'</h1><p>'+esc(s.dek)+'</p></div></article>'}
+function Heads(l){return '<div class="heads"><h2 class="mini-h">Top headlines</h2>'+l.map(function(s){return '<a class="head" href="#story-'+esc(s.id)+'"><span class="head-m">'+Label(s)+'<span>'+esc(SPORTS[s.sport]||s.sport)+'</span></span><b>'+esc(s.title)+'</b></a>'}).join("")+'</div>'}
 function Row(s,i,ranked){return '<button class="row" data-go="'+s.id+'"><span class="n">'+(ranked?(i+1):"▸")+'</span><span><div class="meta">'+Label(s)+'</div><h4>'+esc(s.title)+'</h4><div class="sub">'+esc(SPORTS[s.sport])+' · '+esc(asOf(s))+'</div></span></button>'}
 function Poll(s){
   if(!s.poll)return"";var v=sget("vault.poll."+s.id);
@@ -191,18 +187,20 @@ function Quiz(){
 /* ---------- views ---------- */
 function vHome(){
   var hero=D.stories[0],rest=D.stories.slice(1);
-  var feed=filtered(rest),shown=feed.slice(0,feedLimit);
-  var main=Hero(hero)+Section("Watch: VAULT Report","<span class=\"kick\">Top headline</span>",Player(hero,true)+Videos(hero))+Section("Live Scores",'<a href="#scores">All scores →</a>',ScoreGrid(D.ticker.slice(0,6)))+Section("Coming Soon","<span class=\"kick\">Scheduled events and reports not yet confirmed</span>",Soon())+
-   Section("Live Feed","",Chips()+(shown.length?'<div class="cards">'+shown.map(Card).join("")+'</div>':Empty("No stories","Nothing here yet for this filter."))+(feed.length>feedLimit?'<div style="text-align:center;margin-top:18px"><button class="btn" data-more="1">Load more stories</button></div>':""));
-  ["mma","nfl","cfb","cbb","nba"].forEach(function(sp){
-    var l=D.stories.filter(function(s){return s.sport===sp}).slice(0,3);
+  var feed=filtered(rest.slice(6)),shown=feed.slice(0,feedLimit);
+  var top='<section class="lead-wrap">'+Hero(hero)+Heads(rest.slice(0,6))+'</section>';
+  var main=Section("Scores",'<a href="#scores">All scores →</a>',ScoreGrid(D.ticker.slice(0,8)))+
+   Section("Latest","",Chips()+(shown.length?'<div class="cards">'+shown.map(Card).join("")+'</div>':Empty("No stories","Nothing here yet for this filter."))+(feed.length>feedLimit?'<div class="more-w"><button class="btn" data-more="1">Load more stories</button></div>':""));
+  ["nfl","nba","cfb","cbb","mma"].forEach(function(sp){
+    var l=D.stories.filter(function(s){return s.sport===sp}).slice(0,4);if(!l.length)return;
     main+=Section(SPORTS[sp],'<a href="#'+secHash(sp)+'">See all →</a>','<div class="cards">'+l.map(Card).join("")+'</div>');
   });
-  main+=Section("Trending",'<a href="#trending">See all →</a>','<div class="list">'+D.trending.slice(0,5).map(function(id,i){return Row(byId(id),i,true)}).join("")+'</div>');
-  var deb=D.stories.filter(function(s){return s.poll||s.label==="DEBATE"||s.label==="CONTROVERSY"}).slice(0,6);
-  main+=Section("Headline Quiz","<span class=\"kick\">Test your knowledge</span>",Quiz());
-  main+=Section("Fan Debates &amp; Controversy",'<a href="#debates">See all →</a>','<div class="deb">'+deb.map(function(s,i){return DebateCard(s,i)}).join("")+'</div>');
-  return '<div class="grid"><div>'+main+'</div><div>'+Side()+'</div></div>';
+  var deb=D.stories.filter(function(s){return s.poll||s.label==="DEBATE"||s.label==="CONTROVERSY"}).slice(0,4);
+  main+=Section("Coming up","",Soon());
+  main+=Section("Fan debates",'<a href="#debates">See all →</a>','<div class="deb">'+deb.map(function(s,i){return DebateCard(s,i)}).join("")+'</div>');
+  main+=Section("Headline quiz","",Quiz());
+  var side=Section("Trending",'<a href="#trending">See all →</a>','<div class="list">'+D.trending.slice(0,6).map(function(id,i){var x=byId(id);return x?Row(x,i,true):""}).join("")+'</div>')+Side();
+  return top+'<div class="grid"><div>'+main+'</div><div>'+side+'</div></div>';
 }
 function vSport(sp,title){
   var l=D.stories.filter(function(s){return s.sport===sp});
@@ -460,8 +458,9 @@ $("#searchForm").addEventListener("submit",function(e){e.preventDefault();if(cur
 window.addEventListener("hashchange",function(){var np=$("#notif");if(np&&!np.hidden){np.hidden=true;sset("vault.notifseen",String(Date.now()))}route();window.scrollTo(0,0);bellUI()});
 /* ---------- boot ---------- */
 function ticker(){
-  var one=D.ticker.map(function(g){var aw=g.as>g.hs;return '<a class="tk" href="#game-'+esc(gid(g))+'"><span class="lg">'+g.lg+(isLive(g)?' <i class="dot"></i> '+esc(String(g.st).replace(/^LIVE\s*/i,"")):"")+'</span><span class="'+(aw?"win":"")+'">'+Logo(g,"a","sm",40)+g.a+' <b>'+g.as+'</b></span><span class="win">'+Logo(g,"h","sm",40)+g.h+' <b>'+g.hs+'</b></span></a>'}).join("");
-  $("#ticker").innerHTML=one+one;
+  var l=D.ticker.slice().sort(function(x,y){return (isLive(y)?1:0)-(isLive(x)?1:0)});
+  $("#ticker").innerHTML=l.map(function(g){var lv=isLive(g),fin=!lv,aw=fin&&+g.as>+g.hs,hw=fin&&+g.hs>+g.as;
+   return '<a class="tk'+(lv?" live":"")+'" href="#game-'+esc(gid(g))+'"><span class="tk-s">'+esc(g.lg)+' · '+(lv?esc(String(g.st).replace(/^LIVE\s*/i,"")):"Final")+'</span><span class="tk-t'+(aw?" w":"")+'">'+Logo(g,"a","sm",40)+'<em>'+esc(g.a)+'</em><b>'+esc(g.as)+'</b></span><span class="tk-t'+(hw?" w":"")+'">'+Logo(g,"h","sm",40)+'<em>'+esc(g.h)+'</em><b>'+esc(g.hs)+'</b></span></a>'}).join("");
 }
 function ago(t){var s=Math.max(0,Math.round((Date.now()-t)/1000));if(s<60)return "just now";var m=Math.round(s/60);if(m<60)return m+" min ago";return t.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}
 function liveBadge(){
