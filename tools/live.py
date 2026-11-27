@@ -134,7 +134,7 @@ def main():
         if s in ("closed", "complete") and g.get("start"):
             try:
                 st0 = datetime.datetime.fromisoformat(g["start"].replace("Z", "+00:00"))
-                recent = (now - st0).total_seconds() < 6 * 3600
+                recent = (now - st0).total_seconds() < 14 * 3600
             except Exception:
                 recent = False
         if not (live or recent):

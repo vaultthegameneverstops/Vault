@@ -480,15 +480,15 @@ var STUDIO={rex:{n:"Jordan Avery",f:"Jordan",i:"JA",c:"#facc15",r:"Studio host",
 function hsh(s){var h=0;s=String(s);for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h}
 var CREW_ASSIGN={},CREW_N=0;
 /* more games than hand-made crews: build extra fictional crews from name and look pools */
-var FN_M=["Chris","Brett","Gus","Kenny","Troy","Dave","Lou","Jalen","Mateo","Hank","Victor","Owen","Terrence","Wes","Reggie","Paul"],FN_F=["Erin","Tasha","Molly","Gabriela","Joy","Renee","Hannah","Dana","Simone","Kara"],
- LN=["Abernathy","Castillo","Pryor","McGill","Nakamura","Sutton","Okafor","Lindqvist","Barrett","Fontaine","Hayes","Quinlan","Romero","Whitmore","Dalton","Esposito","Graves","Ibarra","Kincaid","Mercer","Ashford","Beaumont","Caldwell","Donnelly","Eckert","Farrow","Gallagher","Holloway","Iverson","Jett","Kessler","Lockhart","Marlowe","Novak","Osei","Pemberton","Rhodes","Salazar","Thibodeau","Underwood","Valdez","Winslow","Yates","Zimmer"],
+var FN_M=["Chris","Brett","Gus","Kenny","Troy","Dave","Lou","Jalen","Mateo","Hank","Victor","Owen","Terrence","Wes","Reggie","Paul","Darius","Shane","Rafael","Quentin","Elliot","Marco","Tyrell","Graham"],FN_F=["Erin","Tasha","Molly","Gabriela","Joy","Renee","Hannah","Dana","Simone","Kara","Brooke","Alana","Yvette","Corinne","Leah","Monica","Tiana","Paige"],
+ LN=["Abernathy","Castillo","Pryor","McGill","Nakamura","Sutton","Okafor","Lindqvist","Barrett","Fontaine","Hayes","Quinlan","Romero","Whitmore","Dalton","Esposito","Graves","Ibarra","Kincaid","Mercer","Ashford","Beaumont","Caldwell","Donnelly","Eckert","Farrow","Gallagher","Holloway","Iverson","Jett","Kessler","Lockhart","Marlowe","Novak","Osei","Pemberton","Rhodes","Salazar","Thibodeau","Underwood","Valdez","Winslow","Yates","Zimmer","Archer","Bishop","Delacroix","Ellison","Finch","Garrity","Hargrove","Ingram","Jamison","Keane","Langford","Maddox","Navarro","Oakley","Prescott","Radcliffe","Sinclair","Tolliver","Vance","Whitlock","Ackerman","Bancroft","Crowder","Dunleavy","Everett","Fairbanks","Grady","Huxley","Irving","Juarez","Kowal","Lamont","Merritt","Nash","Ortega"],
  SK=[["#F0C4A4","#DCAA88"],["#E3A985","#CF946F"],["#C68A5E","#B1774E"],["#8D5A3B","#7A4B30"],["#5C3A24","#4C2F1D"],["#B8805A","#A36F4C"]],
  HC=["#1c1917","#3B2A20","#a16207","#9ca3af","#0b0b0b","#7c2d12"],JK=["#14213D","#1f2937","#3b0764","#7f1d1d","#0c4a6e","#14532d","#292524","#1e3a8a"],AC=["#2563EB","#ef4444","#22c55e","#f59e0b","#a855f7","#06b6d4","#ec4899","#f97316"];
 var GEN_USED={};
 function genPerson(seed,f){var r=rnd(hsh(seed)%2147483646+1),pk=function(a){return a[Math.floor(r()*a.length)]};var sk=pk(SK),fn,ln,t=0;do{fn=pk(f?FN_F:FN_M);ln=pk(LN);t++}while((GEN_USED[ln]||GEN_USED[fn+ln])&&t<200);GEN_USED[ln]=GEN_USED[fn+ln]=1;var ac=pk(AC),jk=pk(JK);
  return {n:fn+" "+ln,f:fn,i:fn[0]+ln[0],c:ac,lk:look({skin:sk[0],skin2:sk[1],jacket:jk,lapel:"#0b0f19",tie:f?null:pk(["#e2e8f0",ac,"#0f172a"]),hairC:pk(HC),hs:f?pk([H_LONG,H_BUN,H_CURLY]):pk([H_SHORT,H_BUZZ,H_BALD,H_SIDE,H_CURLY]),beard:!f&&r()<.4?pk(HC):null,glasses:r()<.3,brow:"#1c1917",accent:ac,f:f}),v:{g:f?"f":"m",p:+(f?1+r()*.2:.7+r()*.4).toFixed(2),r:+(.9+r()*.22).toFixed(2)}}}
 function ensureCrews(n){n=Math.max(24,n);while(CREWS.length<n){var k=CREWS.length,fem=k%3===1;CREWS.push({rex:genPerson("p"+k,fem),ice:genPerson("c"+k,!fem&&k%4===0)})}
- CREWS.forEach(function(c,k){if(!c.sid)c.sid=genPerson("s"+k,k%2===0)})}
+ CREWS.forEach(function(c,k){if(c.sid)return;var t=0,sp;do{sp=genPerson("s"+k+"_"+t,k%2===0);t++}while(t<20&&[c.rex,c.ice].some(function(x){return x.f===sp.f||x.n.split(" ").slice(-1)[0]===sp.n.split(" ").slice(-1)[0]}));c.sid=sp})}
 function allGids(){var o={};games().forEach(function(g){o[gid(g)]=1});if(PL&&PL.games)Object.keys(PL.games).forEach(function(k){o[k]=1});return Object.keys(o).sort()}
 /* the same game always gets the same crew, on every page and every visit */
 function assignCrews(){var ids=allGids(),sig=ids.join(",");if(sig===assignCrews.sig)return;assignCrews.sig=sig;ensureCrews(ids.length);var used={},out={};
@@ -738,7 +738,7 @@ var ESPN="https://site.api.espn.com/apis/site/v2/sports/";
 function lvStatus(ev,lg){var t=(ev.status||{}).type||{},st=ev.status||{};if(t.name==="STATUS_HALFTIME")return "HALFTIME";if(t.state!=="in")return null;var c=String(st.displayClock||"").replace(/^0(\d:)/,"$1"),q=+st.period||0;
  if(lg==="NFL"||lg==="CFB")return "LIVE "+(q>4?"OT":"Q"+q)+" "+c;return "LIVE "+c}
 function lvRow(ev,lg){var comp=(ev.competitions||[])[0]||{},cs=comp.competitors||[],h=cs.filter(function(c){return c.homeAway==="home"})[0],a=cs.filter(function(c){return c.homeAway==="away"})[0];if(!h||!a)return null;
- var t=(ev.status||{}).type||{},recent=t.state==="post"&&(Date.now()-new Date(ev.date))<6*3600e3;if(t.state!=="in"&&t.name!=="STATUS_HALFTIME"&&!recent)return null;
+ var t=(ev.status||{}).type||{};if(t.state!=="in"&&t.name!=="STATUS_HALFTIME"&&t.state!=="post")return null;
  var ta=a.team||{},th=h.team||{},r={lg:lg,a:ta.abbreviation,h:th.abbreviation,as:+a.score||0,hs:+h.score||0,an:ta.displayName,hn:th.displayName};
  var st=lvStatus(ev,lg);if(st)r.st=st;
  [["a",a],["h",h]].forEach(function(x){var tm=x[1].team||{};if(tm.logo)r[x[0]+"lg"]=tm.logo;if(tm.color)r[x[0]+"c"]="#"+tm.color;if(tm.alternateColor)r[x[0]+"c2"]="#"+tm.alternateColor;(x[1].records||[]).forEach(function(rc){if(rc.type==="total")r[x[0]+"r"]=rc.summary})});
