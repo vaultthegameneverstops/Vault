@@ -3,13 +3,12 @@ on: push
 jobs:
   d:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
       - shell: bash {0}
         run: |
           pip install -q playwright 2>&1 | tail -1
-          (python3 -m http.server 8000 >/dev/null 2>&1 &) ; sleep 1
+          curl -s -D - -o /dev/null -H "Origin: http://localhost:8000" -H "User-Agent: Mozilla/5.0 Chrome/130" "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard" | grep -i "HTTP\|access-control"
           python3 - <<'PY'
           import asyncio
           from playwright.async_api import async_playwright
@@ -17,28 +16,13 @@ jobs:
             async with async_playwright() as p:
               b=await p.chromium.launch(channel="chrome")
               pg=await b.new_page()
-              pg.on("pageerror",lambda e: print("PAGEERR",e))
-              pg.on("console",lambda m: print("C",m.text[:400]) if "LVERR" in m.text else None)
-              reqs=[]
-              pg.on("request",lambda r: reqs.append(r.url) if "espn.com/apis" in r.url else None)
-              await pg.goto("http://localhost:8000/#home")
-              await asyncio.sleep(25)
-              print("BADGE",await pg.inner_text("#liveBadge") if await pg.query_selector("#liveBadge") else await pg.evaluate("document.body.innerText.match(/\\d+ LIVE[^\\n]*/i)?.[0]"))
-              print("DBG",await pg.evaluate("JSON.stringify({ids:Object.keys(window.__LV.ids),rows:Object.keys(window.__LVR).map(k=>k+':'+window.__LVR[k].map(r=>r.a+'-'+r.h+' '+(r.st||'F')).join(',')),upd:VaultApp.D.updatedAt})"))
-              print("ESPN REQS",len(reqs),sorted(set(u.split('?')[0].split('/sports/')[1] for u in reqs)))
-              await pg.goto("http://localhost:8000/#booth"); await asyncio.sleep(4)
-              tabs=await pg.eval_on_selector_all(".bth-chip","a=>a.map(x=>x.getAttribute('data-bp'))")
-              live=[t for t in tabs if t!="studio"]
-              print("TABS",tabs[:8])
-              await pg.click(f'[data-bp="{live[0]}"]')
-              seen=[]
-              for i in range(30):
-                await asyncio.sleep(2)
-                t=await pg.evaluate("document.querySelector('#bpWho').innerText.replace(/\\n/g,' ')+': '+document.querySelector('#bpSay').innerText")
-                if not seen or not t.startswith(seen[-1][:30]): seen.append(t)
-                else: seen[-1]=t
-              print("BOOTH",live[0]); [print("  ",x[:230]) for x in seen]
-              print("SUMMARY REQS",len([u for u in reqs if "summary" in u]))
+              await pg.goto("https://vaultthegameneverstops.github.io/Vault/")
+              await asyncio.sleep(3)
+              for opt in ["{}","{cache:'no-store'}","{mode:'cors'}"]:
+                r=await pg.evaluate("(async()=>{try{const r=await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',"+opt+");const j=await r.json();return 'ok '+r.status+' events '+j.events.length}catch(e){return 'ERR '+e}})()")
+                print("FETCH",opt,r)
+              r=await pg.evaluate("(async()=>{try{const r=await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=400');const t=await r.text();return 'ok '+t.length}catch(e){return 'ERR '+e}})()")
+              print("CBB",r)
               await b.close()
           asyncio.run(main())
           PY
