@@ -654,9 +654,10 @@ function hdLoad(){
  HD.w.onmessage=function(ev){var m=ev.data;
   if(m.type==="progress"){HD.pct=Math.max(HD.pct,Math.round(m.p||0));hdUI()}
   else if(m.type==="ready"){HD.st="ready";HD.dev=m.dev;hdUI();if(bpSound&&bpPlaying){hdPrefetch()}}
+  else if(m.type==="warn"){if(window.console)console.warn("VAULT HD voices:",m.msg)}
   else if(m.type==="error"){HD.st="error";hdUI()}
   else if(m.type==="audio"||m.type==="fail"){var c=HD.cb[m.id];delete HD.cb[m.id];if(c)c(m.type==="audio"?URL.createObjectURL(m.blob):null)}};
- HD.w.onerror=function(){HD.st="error";hdUI()};
+ HD.w.onerror=function(ev){if(window.console)console.warn("VAULT HD worker error:",ev&&ev.message);HD.st="error";hdUI()};
  var gpu=!!navigator.gpu&&!/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
  HD.w.postMessage({type:"load",opts:gpu?[{device:"webgpu",dtype:"fp32"},{device:"wasm",dtype:"q8"}]:[{device:"wasm",dtype:"q8"}]})}
 function hdLine(l){
@@ -758,7 +759,7 @@ function bpEntry(g){var id=gid(g),e=PL&&PL.games&&PL.games[id];return e||{lg:g.l
 function chat(cs,k){
  if(cs.length>=2&&cs[0].w==="rex"&&cs[1].w==="ice"){var pre=pick(["",CREW.rex.f+", ","","You know, "+CREW.rex.f+", "],k+"p");if(pre)cs[1].t=pre+cs[1].t.charAt(0).toLowerCase()+cs[1].t.slice(1);
   var back=pick(["","Couldn't agree more, "+CREW.ice.f+".","","Great point, "+CREW.ice.f+".","Ha! Tell 'em, "+CREW.ice.f+".",""],k+"b");if(back)cs.push({w:"rex",t:back})}
- else if(cs.length===1&&cs[0].w==="rex"){var q=pick(["","What do you make of that, "+CREW.ice.f+"?",""],k+"q");if(q){cs[0].t+=" "+q;cs.push({w:"ice",t:pick(["It's all about execution right now.","Momentum is a real thing, and you can feel it.","Somebody has to answer, and soon."],k+"a")})}}
+ else if(cs.length===1&&cs[0].w==="rex"&&cs[0].h){var q=pick(["","What do you make of that, "+CREW.ice.f+"?","","How about that, "+CREW.ice.f+"?"],k+"q");if(q){cs[0].t+=" "+q;cs.push({w:"ice",t:pick(["That's a game-changer right there.","Momentum is a real thing, and you can feel it in this building.","Somebody on the other side has to answer, and soon.","That's the kind of play that wins you a game in November."],k+"a")})}}
  return cs}
 function bpLines(g){var e=bpEntry(g);setCrew(gid(g));var out=intro(e,g).map(function(l,i){l.key="intro|"+i;return l});
  if(e.rp&&e.rp.length){return out.concat(snapLines(e,g))}(e.plays||[]).slice(-6).forEach(function(x){chat(calls(e,x),x.key||x.x).forEach(function(c,i){c.when=x.t||"";c.key=(x.key||x.x)+"|"+i;out.push(c)})});

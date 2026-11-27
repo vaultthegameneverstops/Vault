@@ -21,7 +21,7 @@ jobs:
               b=await p.chromium.launch(channel="chrome",args=["--autoplay-policy=no-user-gesture-required"])
               pg=await b.new_page()
               pg.on("pageerror",lambda e: print("PAGEERR",e))
-              pg.on("console",lambda m: print("C",m.text[:200]) if m.type in ("error",) else None)
+              pg.on("console",lambda m: print("C",m.text[:200]) if m.type in ("error","warning") else None)
               await pg.add_init_script("window.__played=0;const op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){window.__played++;return op.call(this)}")
               await pg.goto("http://localhost:8000/#booth")
               await asyncio.sleep(5)
@@ -29,7 +29,7 @@ jobs:
               print("TABS",tabs)
               fb=[t.split()[0] for t in tabs if t.startswith(("nfl","cfb"))]
               hp=[t.split()[0] for t in tabs if t.startswith(("cbb","nba"))]
-              for gid in (fb[:1]+hp[:1]):
+              for gid in []:
                 await pg.click(f'[data-bp="{gid}"]')
                 seen=[]
                 for i in range(16):
@@ -44,7 +44,7 @@ jobs:
                 st=await pg.inner_text("#bpHD")
                 if "on" in st or "unavailable" in st: break
               print("HD",st,"|",await pg.inner_text("#bpHDn"))
-              await asyncio.sleep(45)
+              await asyncio.sleep(60)
               print("PLAYED",await pg.evaluate("window.__played"))
               await b.close()
           asyncio.run(main())
