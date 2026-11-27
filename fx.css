@@ -536,3 +536,8 @@ html body .nav a.bth-nav i,#drawerNav a.bth-nav i{width:7px;height:7px;border-ra
 .bth-btn.hd:disabled{opacity:.85;cursor:progress}
 .bth-hdn{margin:-6px 0 12px;font:500 13px var(--sn-bd,system-ui);color:#8fa6c4}
 .bth-hdn:empty{display:none}
+.bth-cap.wait #bpSay{opacity:.55}
+.bth-cap.wait .bth-who::after{content:" · next up…";color:#8fa6c4;font-weight:600}
+.bth-pip{display:inline-block;vertical-align:middle;margin-right:8px}.bth-pip .bo-av{width:34px;height:34px;box-shadow:0 0 0 2px #facc15}
+.bth-chip.studio{border-color:#facc15!important;background:linear-gradient(135deg,rgba(250,204,21,.18),rgba(37,99,235,.18))!important}
+.bth-chip.studio em{color:#facc15!important}

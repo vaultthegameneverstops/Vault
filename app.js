@@ -482,6 +482,8 @@ function applyScores(){
   D.ticker=D.ticker.filter(isLive).concat(D.ticker.filter(function(g){return !isLive(g)}));
   D.updatedAt=SC.updatedAt;return true;
 }
+/* live layer straight from ESPN's public scoreboard (fx.js polls it every ~20s); same shape as scores.json */
+window.VaultLive={push:function(s){if(!s||!s.games||!D)return;SC=s;if(applyScores()){ticker();liveBadge();if((cur==="home"||cur==="scores"||cur.indexOf("game-")===0)&&!document.getElementById("pmodal")&&!VP.on)rerender(true)}}};
 function loadScores(){
   return fetch("scores.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(s){
     if(!s||(SC&&s.updatedAt===SC.updatedAt))return;

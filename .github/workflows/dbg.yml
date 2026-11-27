@@ -3,7 +3,40 @@ on: push
 jobs:
   d:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
-      - run: |
-          for u in "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard" "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=401920530" "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/kc.png&w=80&h=80"; do
-            echo "== $u"; curl -s -D - -o /dev/null -H "Origin: https://vaultthegameneverstops.github.io" "$u" | grep -i -E "^HTTP|access-control|cache-control|age:|content-type" ; done
+      - uses: actions/checkout@v4
+      - shell: bash {0}
+        run: |
+          pip install -q playwright 2>&1 | tail -1
+          (python3 -m http.server 8000 >/dev/null 2>&1 &) ; sleep 1
+          python3 - <<'PY'
+          import asyncio
+          from playwright.async_api import async_playwright
+          async def main():
+            async with async_playwright() as p:
+              b=await p.chromium.launch(channel="chrome")
+              pg=await b.new_page()
+              pg.on("pageerror",lambda e: print("PAGEERR",e))
+              reqs=[]
+              pg.on("request",lambda r: reqs.append(r.url) if "espn.com/apis" in r.url else None)
+              await pg.goto("http://localhost:8000/#home")
+              await asyncio.sleep(25)
+              print("BADGE",await pg.inner_text("#liveBadge") if await pg.query_selector("#liveBadge") else await pg.evaluate("document.body.innerText.match(/\\d+ LIVE[^\\n]*/i)?.[0]"))
+              print("ESPN REQS",len(reqs),sorted(set(u.split('?')[0].split('/sports/')[1] for u in reqs)))
+              await pg.goto("http://localhost:8000/#booth"); await asyncio.sleep(4)
+              tabs=await pg.eval_on_selector_all(".bth-chip","a=>a.map(x=>x.getAttribute('data-bp'))")
+              live=[t for t in tabs if t!="studio"]
+              print("TABS",tabs[:8])
+              await pg.click(f'[data-bp="{live[0]}"]')
+              seen=[]
+              for i in range(30):
+                await asyncio.sleep(2)
+                t=await pg.evaluate("document.querySelector('#bpWho').innerText.replace(/\\n/g,' ')+': '+document.querySelector('#bpSay').innerText")
+                if not seen or not t.startswith(seen[-1][:30]): seen.append(t)
+                else: seen[-1]=t
+              print("BOOTH",live[0]); [print("  ",x[:230]) for x in seen]
+              print("SUMMARY REQS",len([u for u in reqs if "summary" in u]))
+              await b.close()
+          asyncio.run(main())
+          PY
