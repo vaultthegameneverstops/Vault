@@ -37,6 +37,7 @@ Only the passer, receiver, ball carrier and spot are real; other player position
 Basketball (NBA, college): a live shot chart plus threes, dunks and blocks from ESPN's play-by-play, drawn on the court.
 UFC: the current or next fight card (bouts, records, live round, results) shows on the MMA page.
 Team logos and colors come from the ESPN scoreboard feed and appear on scores, the ticker, game pages, the arena and highlights.
+VAULT Writers (`#columns`): fictional writers file a column and quick takes on every game, live and final. Facts come from ESPN; the opinions are invented and labeled as takes.
 To turn logos off, set `LOGOS_ON=false` in `app.js`.
 
 ## Ads (Google AdSense)

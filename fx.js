@@ -84,7 +84,7 @@ function loadPlays(){
  return fetch("plays.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
   var sig=JSON.stringify(d.games||{});if(sig===plSig)return;var first=!plSig;plSig=sig;PL=d;Object.keys(d.games||{}).forEach(function(id){plSort(d.games[id].plays||[])});syncMeta();
   Object.keys(d.games||{}).forEach(function(id){var e=d.games[id];(e.plays||[]).forEach(function(x){var k=id+"|"+x.key;if(plSeen[k])return;plSeen[k]=1;if(!first&&Date.now()-plBoot>8000&&x.big)bigPlay(id,e,x)})});
-  render(false);gamePage();booth();bottomLine();bpRefresh();if((location.hash||"")==="#highlights")hlFill();
+  render(false);gamePage();gameColumns();booth();bottomLine();bpRefresh();if((location.hash||"")==="#columns")wcFill();if((location.hash||"")==="#highlights")hlFill();
  }).catch(function(){})}
 var toastQ=[],toastOn=false;
 function bigPlay(id,e,x){
@@ -282,6 +282,67 @@ function hlFill(){var box=document.getElementById("hlGrid");if(!box)return;var l
  box.querySelectorAll(".hlc-f").forEach(function(el){hlIO.observe(el)})}
 window.VHL={view:function(){return '<section class="hlv"><header class="hlv-h"><div class="hlv-k"><i></i>Live highlights</div><h1>Big plays, on the field</h1><p>Football: every 20+ yard pass, 15+ yard run, takeaway and return score. Hoops: threes, dunks and blocks. Each one drawn on the field or court with the players who made it.</p><div class="hlv-f" id="hlF" role="group" aria-label="Filter by league"></div></header><div class="hlv-g" id="hlGrid"></div><p class="pt-n">Plays and names from ESPN’s public play-by-play. Player positions other than the ball carrier, passer and receiver are illustrative.</p></section>'},
  after:function(){hlFill();var f=$("#hlF");if(f&&!f._b){f._b=1;f.addEventListener("click",function(ev){var b=ev.target.closest("[data-hl]");if(b){hlLg=b.getAttribute("data-hl");hlFill()}})}}};
+
+/* ---------- VAULT Writers: fictional online reporters who write about every game, with opinions ----------
+   Facts (scores, names, yards, plays) come from ESPN's public data. The writers and their opinions are made up,
+   written automatically, and labeled that way on the page. */
+var WRITERS=null;function WR(){return WRITERS||(WRITERS=[
+ {id:"cole",n:"Marcus Cole",h:"@MarcusColeVAULT",desk:"NFL Insider",beats:["NFL"],tone:"bold",c:"#ef4444",lk:look({skin:"#6B4226",skin2:"#5A3720",jacket:"#1f2937",tie:"#ef4444",hairC:"#120c08",hs:H_BUZZ,beard:"#120c08",brow:"#120c08",accent:"#ef4444"})},
+ {id:"reyes",n:"Ana Reyes",h:"@AnaReyesVAULT",desk:"Analytics",beats:["NFL","NBA","CFB","CBB"],tone:"stats",c:"#22d3ee",lk:look({skin:"#C98E64",skin2:"#B07A52",jacket:"#0c4a6e",shirt:"#ecfeff",tie:null,hairC:"#2a160d",hs:H_LONG,glasses:true,brow:"#2a160d",accent:"#22d3ee",f:true})},
+ {id:"boone",n:"Hank Boone",h:"@HankBooneVAULT",desk:"College Football",beats:["CFB"],tone:"oldschool",c:"#f59e0b",lk:look({skin:"#F0C4A4",skin2:"#DCAA88",jacket:"#78350f",tie:"#fde68a",hairC:"#d6d3d1",hs:H_SIDE,brow:"#a8a29e",accent:"#f59e0b"})},
+ {id:"lin",n:"Tasha Lin",h:"@TashaLinVAULT",desk:"NBA",beats:["NBA"],tone:"hype",c:"#a855f7",lk:look({skin:"#EBC6A3",skin2:"#D9B08C",jacket:"#3b0764",shirt:"#f3e8ff",tie:null,hairC:"#0b0b0b",hs:H_BUN,brow:"#0b0b0b",accent:"#a855f7",f:true})},
+ {id:"okafor",n:"Dre Okafor",h:"@DreOkaforVAULT",desk:"College Hoops",beats:["CBB"],tone:"hype",c:"#22c55e",lk:look({skin:"#4A2E1C",skin2:"#3D2516",jacket:"#14532d",tie:"#bbf7d0",hairC:"#0a0705",hs:H_CURLY,brow:"#0a0705",accent:"#22c55e"})},
+ {id:"vance",n:"Gil Vance",h:"@GilVanceVAULT",desk:"National Columnist",beats:["NFL","NBA","CFB","CBB"],tone:"contrarian",c:"#60a5fa",lk:look({skin:"#E3A985",skin2:"#CF946F",jacket:"#1e3a8a",tie:"#e2e8f0",hairC:"#57534e",hs:H_BALD,beard:"#78716c",glasses:true,brow:"#57534e",accent:"#60a5fa"})}])}
+function wav(w,sz){var p=CREW;CREW={x:{lk:w.lk,c:w.c}};var a=avatar("x");CREW=p;return a}
+function writersFor(lg,k){var L=String(lg).toUpperCase(),pool=WR().filter(function(w){return w.beats.indexOf(L)>-1}),lead=pool.filter(function(w){return w.beats.length===1})[0]||pool[0],
+ rest=pool.filter(function(w){return w!==lead}).sort(function(a,b){return hsh(k+a.id)-hsh(k+b.id)});return [lead].concat(rest)}
+function gameFacts(g){var id=gid(g),e=(PL&&PL.games&&PL.games[id])||{},A=nm(g,"a"),H=nm(g,"h"),An=nick(A),Hn=nick(H),lv=isLive(g),d=Math.abs(g.as-g.hs),aw=g.as>g.hs,W=aw?A:H,Lz=aw?H:A,Wn=nick(W),Ln=nick(Lz);
+ var hls=(e.plays||[]).filter(function(x){return x.hl}),tds=(e.plays||[]).filter(function(x){return x.k==="td"}),tos=(e.plays||[]).filter(function(x){return x.k==="to"});
+ var sh=null;if(e.sh&&e.sh.length){var m={a:[0,0],h:[0,0]};e.sh.forEach(function(q){m[q[3]][1]++;if(q[2])m[q[3]][0]++});sh=m}
+ return {id:id,e:e,g:g,A:A,H:H,An:An,Hn:Hn,lv:lv,d:d,tie:g.as===g.hs,W:W,L:Lz,Wn:Wn,Ln:Ln,ws:Math.max(g.as,g.hs),ls:Math.min(g.as,g.hs),hls:hls,tds:tds,tos:tos,fs:e.fs,bs:e.bs,sh:sh,fb:football(g)}}
+function headlineFor(f,w){var k=f.id+w.id,big=f.hls[f.hls.length-1];
+ if(f.lv)return f.tie?f.An+" and "+f.Hn+" deadlocked at "+f.g.as+", "+clock(f.g)+" to play":f.Wn+" lead "+f.Ln+" "+f.ws+"-"+f.ls+" ("+clock(f.g)+")";
+ if(f.tie)return f.An+" and "+f.Hn+" finish tied at "+f.g.as;
+ var verb=f.d<=3?pick(["edge","survive","outlast","hold off"],k):f.d>=20?pick(["rout","roll past","blow out","cruise past"],k):pick(["beat","top","handle","take down"],k);
+ return f.Wn+" "+verb+" "+f.Ln+" "+f.ws+"-"+f.ls+(big&&big.hl&&(big.hl.qb||big.hl.by)?" behind "+(big.hl.ty==="pass"?big.hl.qb.split(" ").slice(-1)[0]+"'s arm":big.hl.by.split(" ").slice(-1)[0]):"")}
+function takeFor(f,w){var k=f.id+w.id,T=w.tone,big=f.hls[f.hls.length-1],bx=big?big.x:"";
+ var close=f.d<=7,blow=f.d>=20;
+ var stat=f.fs&&f.fs.a&&f.fs.h?(f.An+" "+f.fs.a.yds+" yards, "+f.Hn+" "+f.fs.h.yds+"; turnovers "+(f.fs.a.to||0)+"-"+(f.fs.h.to||0)):f.sh?(f.An+" "+f.sh.a[0]+"/"+f.sh.a[1]+" and "+f.Hn+" "+f.sh.h[0]+"/"+f.sh.h[1]+" from the field in the recent stretch"):"";
+ var lead=f.bs&&f.bs.a&&f.bs.h&&Math.max(f.bs.a.pts,f.bs.h.pts)>=10?(f.bs.a.ld+" ("+f.bs.a.pts+") and "+f.bs.h.ld+" ("+f.bs.h.pts+")"):"";
+ if(T==="bold")return pick([close?"I'll say it: the "+f.Wn+" are the team nobody wants to see in January. They found a way, again.":blow?"That wasn't a game, that was a statement. The "+f.Wn+" are coming for the top seed.":"The "+f.Wn+" did what good teams do. The "+f.Ln+" have some real questions to answer this week.",
+   f.lv?"Mark it down: whoever wins the next possession wins this game. The "+(f.tie?f.Hn:f.Wn)+" feel like the better team right now.":"The "+f.Ln+" can talk about bad breaks all they want. Good teams don't need breaks."],k);
+ if(T==="stats")return stat?"The numbers tell the story: "+stat+". "+(f.lv?pick(["That gap is the game so far.","If that holds, so does the lead.","Watch that number the rest of the way."],k):pick(["That gap is the game.","Efficiency beat volume here.","Don't let the final score fool you; the underlying numbers matter more going forward."],k)):(f.lv?"Early returns favor the "+(f.tie?f.Hn:f.Wn)+", but it's a small sample. Check back in ten minutes.":"Small sample, but the "+f.Wn+" were the more efficient team, and that tends to hold up.");
+ if(T==="oldschool")return pick(["Games like this are won in the trenches, and the "+f.Wn+" won the line of scrimmage. Simple as that.","You can keep your fancy schemes. The "+f.Wn+" ran the ball, protected it, and tackled. That's football.","Somebody tell the "+f.Ln+" that November football is about toughness. The "+f.Wn+" brought it."],k);
+ if(T==="hype")return lead?lead+" put on a show. "+pick(["This is why you stay up late.","That's appointment viewing, every time.","Somebody bottle that energy."],k):(bx?"Did you SEE that? "+bx+" "+pick(["Instant classic.","Highlight of the night, easy."],k):(f.lv?(f.tie?"All square and the building is buzzing. This is why you stay up late.":"The "+f.Wn+" have the momentum right now. Somebody needs a run."):"What a night of basketball. The "+f.Wn+" closed it out."));
+ return pick([close?"Everyone will praise the "+f.Wn+", but honestly the "+f.Ln+" outplayed them for long stretches. This one could have flipped on one possession.":"Hot take incoming: this result says more about the "+f.Ln+" than the "+f.Wn+". Let's not crown anybody yet.",
+   "I'm not buying the hype on the "+f.Wn+" just yet. Show me it again next week."],k)}
+function articleFor(f,w){var k=f.id+w.id,big=f.hls.slice(-2),p=[];
+ p.push((f.lv?"It's "+clock(f.g)+" in "+f.A+" at "+f.H+", and ":"Final: ")+(f.tie?"it's tied at "+f.g.as+".":"the "+f.W+" "+(f.lv?"lead ":"beat the "+f.L+" ")+f.ws+"-"+f.ls+(f.lv?" over the "+f.L+".":"."))+(f.g.ar&&f.g.hr?" The "+f.An+" came in "+f.g.ar+" and the "+f.Hn+" "+f.g.hr+".":""));
+ if(big.length)p.push("The moments that mattered: "+big.map(function(x){return (x.hl&&x.hl.t?x.hl.t+", ":"")+x.x}).join(" Then, ")+"");
+ if(f.fs&&f.fs.a&&f.fs.h)p.push("By the numbers, the "+f.An+" have "+f.fs.a.yds+" total yards to "+f.fs.h.yds+" for the "+f.Hn+", with turnovers "+(f.fs.a.to||0)+" to "+(f.fs.h.to||0)+".");
+ if(f.bs&&f.bs.a&&f.bs.h)p.push(f.bs.a.ld+" leads the "+f.An+" with "+f.bs.a.pts+" points; "+f.bs.h.ld+" has "+f.bs.h.pts+" for the "+f.Hn+".");
+ if(f.sh)p.push("Recent shooting: "+f.An+" "+f.sh.a[0]+" of "+f.sh.a[1]+", "+f.Hn+" "+f.sh.h[0]+" of "+f.sh.h[1]+".");
+ p.push("My take: "+takeFor(f,w));
+ return p}
+function colCard(g,full){var f=gameFacts(g),ws=writersFor(g.lg,f.id),w=ws[0];if(!w)return "";
+ var quick=ws.slice(1,3).map(function(x){return '<li class="wq"><span class="wq-av">'+wav(x)+'</span><div><b>'+esc(x.n)+'</b> <em>'+esc(x.h)+' · via VAULT '+esc(x.desk)+'</em><p>'+esc(takeFor(f,x))+'</p></div></li>'}).join("");
+ var paras=articleFor(f,w);if(!full)paras=[paras[0],paras[paras.length-1]];
+ return '<article class="wcol" style="--wc:'+w.c+'"><div class="wcol-k">'+(f.lv?'<i></i>Live column':"Game column")+" · "+esc(g.lg)+'</div><h3><a href="#game-'+esc(f.id)+'">'+esc(headlineFor(f,w))+'</a></h3>'+
+  '<div class="wcol-by"><span class="wq-av">'+wav(w)+'</span><div><b>By '+esc(w.n)+'</b><em>'+esc(w.desk)+' · via VAULT · '+esc(w.h)+'</em></div></div>'+
+  paras.map(function(x,i){return '<p'+(i===paras.length-1?' class="take"':"")+'>'+esc(x)+'</p>'}).join("")+
+  (quick?'<div class="wq-h">Other VAULT writers on this one</div><ul class="wql">'+quick+'</ul>':"")+'</article>'}
+window.VCOL={view:function(){return '<section class="hlv wcv"><header class="hlv-h"><div class="hlv-k"><i></i>VAULT writers</div><h1>The takes.</h1><p>VAULT’s writers file a column on every game, live and final, plus quick takes from the rest of the desk.</p><div class="hlv-f" id="wcF" role="group" aria-label="Filter by league"></div></header><div class="wcg" id="wcGrid"></div>'+
+ '<p class="pt-n">VAULT’s writers (Marcus Cole, Ana Reyes, Hank Boone, Tasha Lin, Dre Okafor, Gil Vance) are fictional. Their columns are written automatically: the scores, names, stats and plays come from ESPN’s public data; the opinions are invented for fun and labeled as takes.</p></section>'},
+ after:function(){wcFill();var f=$("#wcF");if(f&&!f._b){f._b=1;f.addEventListener("click",function(ev){var b=ev.target.closest("[data-wc]");if(b){wcLg=b.getAttribute("data-wc");wcFill()}})}}};
+var wcLg="all";
+function wcGames(){var l=games().filter(function(g){var L=String(g.lg).toUpperCase();return L!=="MMA"&&(isLive(g)||(PL&&PL.games&&PL.games[gid(g)])||/FINAL/i.test(g.st||"FINAL"))});return l.filter(isLive).concat(l.filter(function(g){return !isLive(g)}))}
+function wcFill(){var box=document.getElementById("wcGrid");if(!box)return;var l=wcGames(),lgs={};l.forEach(function(g){lgs[g.lg]=1});
+ var f=$("#wcF");if(f)f.innerHTML=["all"].concat(Object.keys(lgs)).map(function(k){return '<button type="button" data-wc="'+esc(k)+'" aria-pressed="'+(wcLg===k)+'">'+(k==="all"?"All":esc(k))+'</button>'}).join("");
+ var sh=l.filter(function(g){return wcLg==="all"||g.lg===wcLg}).slice(0,24);box.innerHTML=sh.length?sh.map(function(g){return colCard(g,false)}).join(""):'<p class="pt-e">Columns land here as games tip off and kick off.</p>'}
+function gameColumns(){var h=(location.hash||"").slice(1);if(h.indexOf("game-")!==0)return;var id=h.slice(5),art=$("#view article"),gm=art&&art.querySelector(".gm");if(!gm)return;
+ var g=null;games().forEach(function(x){if(gid(x)===id)g=x});if(!g||String(g.lg).toUpperCase()==="MMA")return;
+ var box=art.querySelector(".wcbox");if(!box){box=document.createElement("section");box.className="wcbox";box.setAttribute("aria-label","VAULT writers");(art.querySelector(".pt")||art.querySelector(".booth")||gm).insertAdjacentElement("afterend",box)}
+ box.innerHTML='<h2 class="wcbox-h">What VAULT writers are saying</h2>'+colCard(g,true)+'<p class="pt-n">Fictional VAULT writers; facts from ESPN, opinions invented and labeled as takes.</p>'}
 
 /* ---------- Arena ---------- */
 var AR=null,sel=null,st={rx:58,rz:-16,drag:false,idle:0,t0:performance.now(),vis:true},seen={};
@@ -954,7 +1015,7 @@ function parallax(){if(RM)return;var y=window.scrollY;if(Math.abs(y-parY)<1)retu
 function boot(){
  if(!A()||!A().D){setTimeout(boot,200);return}
  if(!RM)document.documentElement.classList.add("fx-anim");build();tick();decorate();bottomLine();reveal();flyIn();if(AR&&RM)AR.classList.add("settled");
- var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();booth();gamePage();reveal();fightCard(false);if((location.hash||"")==="#highlights"&&document.getElementById("hlGrid")&&!document.getElementById("hlGrid").children.length)window.VHL.after()});mo.observe(v,{childList:true})}
+ var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();booth();gamePage();gameColumns();reveal();if((location.hash||"")==="#columns"&&document.getElementById("wcGrid")&&!document.getElementById("wcGrid").children.length)window.VCOL.after();fightCard(false);if((location.hash||"")==="#highlights"&&document.getElementById("hlGrid")&&!document.getElementById("hlGrid").children.length)window.VHL.after()});mo.observe(v,{childList:true})}
  setInterval(tick,1000);
  loadPlays();setInterval(function(){if(!document.hidden)loadPlays()},15000);lvStart();setTimeout(lvBoothTick,4000);loadUFC();setInterval(function(){if(!document.hidden)loadUFC()},60000);
  window.addEventListener("hashchange",function(){gpFilter="all";render(true);boothRoute();setTimeout(function(){booth();gamePage()},50)});boothRoute();var nv=$("#nav");if(nv){var nmo=new MutationObserver(function(){if(!nv.querySelector("a.bth-nav"))navLink()});nmo.observe(nv,{childList:true})}var dn=$("#drawerNav");if(dn){var dmo=new MutationObserver(function(){if(!dn.querySelector("a.bth-nav"))navLink()});dmo.observe(dn,{childList:true})}window.addEventListener("scroll",function(){requestAnimationFrame(parallax)},{passive:true});if(window.speechSynthesis)speechSynthesis.onvoiceschanged=function(){bpVoices=null}}
