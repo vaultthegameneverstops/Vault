@@ -75,41 +75,37 @@ var photos={};
 function getPhoto(id){return null}/* visitor photo uploads are disabled on the public site */
 function savePhoto(id,p){photos[id]=p;try{localStorage.setItem("vault.photo."+id,JSON.stringify(p));return true}catch(e){return false}}
 function delPhoto(id){delete photos[id];try{localStorage.removeItem("vault.photo."+id)}catch(e){}}
-/* Original player-card art: a jersey back in the story's colors with the player's name. No real photos. */
-function Jersey(s,nm){
-  var pal=s.pal||["#0b1324","#1d4ed8","#f5f5f5","#f5f5f5"],c1=pal[1]||"#1d4ed8",c2=pal[2]||"#ffffff",ink=pal[3]||"#ffffff";
-  var last=String(nm[1]||"").toUpperCase(),ini=(String(nm[0]||"")[0]||"")+(last[0]||""),hoops=s.sport==="nba"||s.sport==="cbb";
-  var fs=last.length>9?17:last.length>6?21:25,id="jg"+String(s.id).replace(/[^a-z0-9]/gi,"");
-  var shape=hoops?"M78 22 C92 34 148 34 162 22 L184 30 C178 62 182 74 196 88 L196 196 L44 196 L44 88 C58 74 62 62 56 30 Z"
-    :"M84 18 C98 30 142 30 156 18 L206 36 L232 92 L196 108 L186 88 L188 196 L52 196 L54 88 L44 108 L8 92 L34 36 Z";
-  var trim=hoops?'<path d="M78 22 C92 34 148 34 162 22" fill="none" stroke="'+c2+'" stroke-width="6"/><path d="M56 30 C62 62 58 74 44 88 M184 30 C178 62 182 74 196 88" fill="none" stroke="'+c2+'" stroke-width="5"/>'
-    :'<path d="M84 18 C98 30 142 30 156 18" fill="none" stroke="'+c2+'" stroke-width="6"/><path d="M14 80 L38 90 M226 80 L202 90" stroke="'+c2+'" stroke-width="7"/><path d="M19 70 L41 80 M221 70 L199 80" stroke="'+ink+'" stroke-width="3" opacity=".8"/>';
-  return '<svg class="ill jersey" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient></defs>'+
-    '<path d="'+shape+'" fill="'+c1+'" stroke="rgba(0,0,0,.35)" stroke-width="2"/><path d="'+shape+'" fill="url(#'+id+')"/>'+trim+
-    '<text x="120" y="'+(hoops?70:64)+'" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="2" fill="'+ink+'" stroke="'+c2+'" stroke-width="1">'+esc(last)+'</text>'+
-    '<text x="120" y="'+(hoops?160:158)+'" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="78" fill="'+ink+'" stroke="'+c2+'" stroke-width="4" paint-order="stroke">'+esc(ini)+'</text></svg>';
-}
-/* Original fight-shorts art for MMA stories: the fighter's name on the waistband, in the story's colors. */
-function lumOf(h){h=String(h||"").replace("#","");if(h.length!==6)return .5;return (.299*parseInt(h.slice(0,2),16)+.587*parseInt(h.slice(2,4),16)+.114*parseInt(h.slice(4,6),16))/255}
-function Shorts(s,nm){
-  var pal=s.pal||["#0b0b0b","#d20a0a","#8a8a8a","#f2f2f2"],c1=pal[1]||"#d20a0a",c2=pal[2]||"#111",ink=pal[3]||"#fff";if(Math.abs(lumOf(ink)-lumOf(c2))<.35)ink=lumOf(c2)>.5?"#111":"#fff";
-  var last=String(nm[1]||"").toUpperCase(),fs=last.length>9?15:last.length>6?18:21,id="sg"+String(s.id).replace(/[^a-z0-9]/gi,"");
-  var body="M36 40 H204 L214 168 Q170 182 132 172 L124 108 Q120 98 116 108 L108 172 Q70 182 26 168 Z";
-  return '<svg class="ill jersey shorts" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient></defs>'+
-    '<path d="'+body+'" fill="'+c1+'" stroke="rgba(0,0,0,.4)" stroke-width="2"/><path d="'+body+'" fill="url(#'+id+')"/>'+
-    '<path d="M30 108 L26 168 Q44 174 60 176 L58 112 Z" fill="'+c2+'" opacity=".9"/><path d="M210 108 L214 168 Q196 174 180 176 L182 112 Z" fill="'+c2+'" opacity=".9"/>'+
-    '<path d="M44 60 L40 168 M196 60 L200 168" stroke="'+ink+'" stroke-width="3" opacity=".55"/>'+
-    '<rect x="32" y="14" width="176" height="36" rx="5" fill="'+c2+'" stroke="rgba(0,0,0,.4)" stroke-width="2"/>'+
-    '<text x="120" y="'+(38+(21-fs)/3)+'" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="3" fill="'+ink+'">'+esc(last)+'</text>'+
-    '<path d="M108 52 L104 66 M132 52 L136 66" stroke="'+ink+'" stroke-width="3" stroke-linecap="round"/></svg>';
-}
+/* Team-logo story art. teams.json (built weekly by the Live scores job from ESPN team lists)
+   maps team names to logos; each story shows the logos of the teams it's about, or the UFC logo for MMA. */
+var TEAMS=null,TCACHE={};
+var SPORT_LG={nfl:"nfl",cfb:"cfb",nba:"nba",cbb:"cbb"};
+function teamIndex(rows,pro){var ix={full:{},loc:{},nick:{},ab:{}};(rows||[]).forEach(function(r){var t={ab:r[0],n:r[1],loc:r[2],nick:r[3],lg:r[5],c:r[6],c2:r[7]};
+  var k=function(x){return String(x||"").toLowerCase().trim()};if(r[1])ix.full[k(r[1])]=t;if(r[2]&&!ix.loc[k(r[2])])ix.loc[k(r[2])]=t;if(pro&&r[3])ix.nick[k(r[3])]=t;if(r[0]&&!ix.ab[k(r[0])])ix.ab[k(r[0])]=t});return ix}
+var LG_KEY={NFL:"nfl",NBA:"nba",CFB:"cfb",CBB:"cbb"};
+function teamByAbbr(lg,ab){var L=String(lg||"").toUpperCase();if(!TEAMS)return null;if(L==="MMA"||L==="UFC")return TEAMS.ufc?{lg:TEAMS.ufc}:null;var ix=TEAMS[LG_KEY[L]];return ix?ix.ab[String(ab||"").toLowerCase()]||null:null}
+window.VTeams={byAbbr:teamByAbbr};
+function loadTeams(){fetch("teams.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
+  var L=d.leagues||{};TEAMS={ufc:d.ufc||null};Object.keys(L).forEach(function(k){TEAMS[k]=teamIndex(L[k],k==="nfl"||k==="nba")});TCACHE={};
+  if(D&&typeof rerender==="function")rerender(true)}).catch(function(){})}
+function storyTeams(s){
+  if(!TEAMS)return [];if(TCACHE[s.id])return TCACHE[s.id];var ix=TEAMS[SPORT_LG[s.sport]],out=[];if(!ix)return [];
+  function push(t){if(t&&out.indexOf(t)<0&&out.length<2)out.push(t)}
+  (s.tags||[]).forEach(function(tag){var k=String(tag).toLowerCase().trim();push(ix.full[k]||ix.loc[k]||ix.nick[k]||null)});
+  if(out.length<2){var tl=" "+String(s.title||"").toLowerCase().replace(/[^a-z0-9&.' -]/g," ")+" ";
+    var cands=[];["full","loc","nick"].forEach(function(kind){Object.keys(ix[kind]).forEach(function(n){if(n.length<4)return;var at=tl.indexOf(" "+n+" ");if(at>-1)cands.push([at,ix[kind][n]])})});
+    cands.sort(function(a,b){return a[0]-b[0]}).forEach(function(c){push(c[1])})}
+  return TCACHE[s.id]=out}
+function TeamArt(s){
+  if(s.sport==="mma"){var u=TEAMS&&TEAMS.ufc;return u?'<div class="tart ufc"><i style="--gc:#d20a0a"></i><img src="'+esc(logoSrc(u,400))+'" alt="UFC" loading="lazy" onerror="this.parentNode.remove()"></div>':""}
+  var ts=storyTeams(s);if(!ts.length)return "";
+  return '<div class="tart n'+ts.length+'">'+ts.map(function(t,i){return (i?'<b class="tvs">VS</b>':"")+'<span class="tlg"><i style="--gc:'+esc(t.c)+'"></i><img src="'+esc(logoSrc(t.lg,400))+'" alt="'+esc(t.n)+'" loading="lazy" onerror="this.parentNode.remove()"></span>'}).join("")+'</div>'}
 function Art(s,cls){
   var nm=s.name||NAMES[s.id];
   var v=(s.id.length+s.id.charCodeAt(0))%3,P=getPhoto(s.id)||(s.img?{src:s.img,credit:s.credit,cutout:s.cutout,pos:s.imgPos,who:nm?nm.join(" "):""}:null);
   var word=nm?'<span class="w nm" aria-hidden="true"><i>'+nm[0]+'</i>'+nm[1]+'</span>':'<span class="w" aria-hidden="true">'+esc(s.art||s.kicker)+'</span>';
   var body;
   if(P&&!P.cutout)body='<img class="photo" src="'+esc(P.src)+'" alt="'+esc(s.title)+'" loading="lazy">';
-  else body=(P?'<img class="cutout" src="'+esc(P.src)+'" alt="'+esc(s.title)+'">':nm?(s.sport==="mma"?Shorts(s,nm):Jersey(s,nm)):'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>');
+  else body=(P?'<img class="cutout" src="'+esc(P.src)+'" alt="'+esc(s.title)+'">':TeamArt(s)||'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>');
   var cap=P?(P.credit?'<span class="cap">Photo: '+esc(P.credit)+'</span>':""):'<span class="cap">Original graphic</span>';
   var sl=slime(s.id,s.sport,s.pal),acc=' style="--acc:'+sl.acc+';--blobs:'+sl.bg+'"';
   var who=P&&P.who?String(P.who).slice(0,40):"",fr=who?'<span class="pframe" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="plate"><b>'+esc(who.toUpperCase())+'</b>'+(s.kicker?'<em>'+esc(s.kicker)+'</em>':"")+'</span>':"";
@@ -254,7 +250,7 @@ var LGS={NFL:"nfl",NBA:"nba",WNBA:"nba",CFB:"cfb",NCAAF:"cfb",CBB:"cbb",NCAAB:"c
 /* Team logos from the ESPN scoreboard feed (used to identify teams, like any scoreboard). */
 var LOGOS_ON=true;
 function logoSrc(u,px){u=String(u||"");if(!u)return "";var m=u.match(/^https:\/\/a\.espncdn\.com(\/i\/teamlogos\/.+\.png)$/);return m?"https://a.espncdn.com/combiner/i?img="+m[1]+"&w="+px+"&h="+px:u}
-function Logo(g,k,cls,px){var u=LOGOS_ON&&g&&g[k+"lg"];return u?'<img class="tlogo '+(cls||"")+'" src="'+esc(logoSrc(u,px||80))+'" alt="" loading="lazy" onerror="this.remove()">':""}
+function Logo(g,k,cls,px){var u=LOGOS_ON&&g&&(g[k+"lg"]||((teamByAbbr(g.lg,g[k])||{}).lg));return u?'<img class="tlogo '+(cls||"")+'" src="'+esc(logoSrc(u,px||80))+'" alt="" loading="lazy" onerror="this.remove()">':""}
 window.VLogo={src:logoSrc,html:Logo};
 function Score(g){var live=isLive(g),aw=g.as>g.hs,hw=g.hs>g.as,fin=!live;return '<button type="button" class="sc'+(live?" live":"")+'" data-game="'+esc(gid(g))+'" aria-label="'+esc(teamName(g,"a")+" at "+teamName(g,"h")+", open game")+'"><div class="sc-h"><span>'+esc(g.lg)+'</span><b>'+(live?'<i class="dot"></i>':"")+esc(g.st||"FINAL")+'</b></div><div class="sc-r'+(fin&&aw?" w":"")+'"><span>'+Logo(g,"a")+esc(g.a)+'</span><b>'+esc(g.as)+'</b></div><div class="sc-r'+(fin&&hw?" w":"")+'"><span>'+Logo(g,"h")+esc(g.h)+'</span><b>'+esc(g.hs)+'</b></div><div class="sc-n">Tap for full game</div></button>'}
 function ScoreGrid(l){return l.length?'<div class="scs">'+l.map(Score).join("")+'</div>':Empty("No scores yet","Check back soon.")}
@@ -505,6 +501,7 @@ setInterval(refresh,120000);
 setInterval(function(){if(D&&!document.hidden)loadScores()},15000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden){refresh();loadScores()}});
 var RAW=null;
+loadTeams();
 VaultFeed.load().then(function(d){
   RAW=JSON.stringify(d);D=d;ticker();liveBadge();$("#footNote").textContent=D.edition+" · stories summarized from linked sources, "+D.asOf+" · rumors are labeled";
   window.VaultApp={gid:gid,get D(){return D},esc:esc,byId:byId,Card:Card,Section:Section,Empty:Empty,Art:Art,SPORTS:SPORTS,Meta:Meta,toast:toast,rerender:rerender,renderNav:function(){renderNav(curNav)},cur:function(){return cur}};

@@ -18,7 +18,7 @@ function lum(h){h=String(h||"").replace("#","");if(h.length!==6)return .5;var r=
 function meta1(g){if(!g||!g.lg)return;var L=String(g.lg).toUpperCase();["a","h"].forEach(function(k){var ab=g[k];if(!ab)return;var c=g[k+"c"],c2=g[k+"c2"];if(c){var u=lum(c);TCM[L+"|"+ab]=(u>.86||u<.06)&&c2&&lum(c2)<=.86&&lum(c2)>=.06?c2:c}if(g[k+"lg"])LGM[L+"|"+ab]=g[k+"lg"]})}
 function syncMeta(){try{games().forEach(meta1);if(PL&&PL.games)Object.keys(PL.games).forEach(function(id){meta1(PL.games[id])})}catch(_){}}
 function tcol(lg,ab){lg=String(lg||"").toUpperCase();var m=lg==="NFL"?COL.NFL:lg==="NBA"?COL.NBA:COL.COL;return m[ab]||TCM[lg+"|"+ab]||hue(lg+ab)}
-function logoURL(lg,ab,px){var u=LGM[String(lg||"").toUpperCase()+"|"+ab];return u&&window.VLogo?VLogo.src(u,px||80):""}
+function logoURL(lg,ab,px){var u=LGM[String(lg||"").toUpperCase()+"|"+ab]||(window.VTeams&&(VTeams.byAbbr(lg,ab)||{}).lg);return u&&window.VLogo?VLogo.src(u,px||80):""}
 function logoImg(lg,ab,cls,px){var u=logoURL(lg,ab,px);return u?'<img class="tlogo '+(cls||"")+'" src="'+esc(u)+'" alt="" loading="lazy" onerror="this.remove()">':""}
 function centerLogo(g,cx,cy,r){var u=logoURL(g.lg,g.h,160);return u?'<image href="'+esc(u)+'" x="'+(cx-r)+'" y="'+(cy-r)+'" width="'+(2*r)+'" height="'+(2*r)+'" preserveAspectRatio="xMidYMid meet"/>':""}
 function isLive(g){return /LIVE|Q\d|H\d|\d+:\d+|HALF|OT/i.test(g.st||"")&&!/FINAL/i.test(g.st||"")}
