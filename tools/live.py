@@ -126,8 +126,13 @@ def main():
     now = datetime.datetime.now(datetime.timezone.utc)
 
     out = []
+    wp = {}
     for g in p.get("games", []):
         lg = LG.get(g["lg"], g["lg"].upper())
+        if g.get("wp") is not None:
+            wp[gid(lg, g["a"], g["h"])] = {"h": g["wp"], "s": g.get("wps", "live"), "id": g.get("id"), "t": g.get("wpt", 0)}
+            if g.get("wpl"):
+                wp[gid(lg, g["a"], g["h"])]["l"] = g["wpl"]
         s = g.get("status", "")
         live = s in ("inprogress", "halftime")
         recent = False
@@ -155,6 +160,12 @@ def main():
             out.append((bool(r.get("st")), r, None))
     out.sort(key=lambda x: not x[0])
     scores = {"updatedAt": now_iso(), "src": SRC, "games": [r for _, r, _ in out]}
+    # win probability (home %, ESPN): keep entries for leagues we did not fetch this pass
+    for k, v in (prev_scores.get("wp") or {}).items():
+        if k not in wp and k.split("-")[0].upper() not in fetched:
+            wp[k] = v
+    if wp:
+        scores["wp"] = wp
     ufc = p.get("ufc") if "ufc" in p else prev_scores.get("ufc")
     if ufc:
         scores["ufc"] = ufc

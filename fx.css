@@ -582,3 +582,73 @@ html body .nav a.bth-nav i,#drawerNav a.bth-nav i{width:7px;height:7px;border-ra
 .ar-cardl li{padding:7px 0;border-bottom:1px solid #1E2B45;font:500 13px/1.35 var(--sn-bd,system-ui);color:#cfd6e0}
 .ar-cardl li:last-child{border-bottom:0}
 .ar-cardl b{color:#fff;font-weight:700}
+
+/* ---------- field page (#field-<id>) ---------- */
+.ar-open{position:absolute;left:12px;top:12px;z-index:4;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:rgba(5,7,12,.78);border:1px solid #2a3a5a;color:#dce6f5;font:700 12px var(--sn-bd,system-ui);text-decoration:none}
+.ar-open svg{width:15px;height:15px}
+.ar-open:hover{background:#1E3A8A}
+.ar-stage{cursor:pointer}
+.ar-zoom{display:none;position:absolute;right:12px;bottom:12px;z-index:4;gap:6px}
+.ar-zoom button{min-width:40px;height:40px;padding:0 12px;border-radius:999px;border:1px solid #2a3a5a;background:rgba(5,7,12,.82);color:#fff;font:800 16px var(--sn-bd,system-ui);cursor:pointer}
+.ar-zoom button:hover{background:#1E3A8A}
+.arena.big .ar-zoom{display:flex}
+.arena.big .ar-open{display:none}
+.arena.big .ar-in{grid-template-columns:minmax(0,1fr);max-width:1500px}
+.arena.big .ar-stage{height:min(74vh,820px);cursor:grab}
+.arena.big .ar-side{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 28px;align-items:start}
+.arena.big .ar-side>.ar-kick,.arena.big .ar-side>.ar-chips{grid-column:1/-1}
+.arena.big .ar-hlw{max-width:min(46%,420px)}
+.arena.big .ar-hl b{font-size:20px}
+.fpv{max-width:1500px;margin:0 auto;padding:8px 20px 40px}
+.fp-back{display:inline-block;margin:6px 0 10px;color:#93c5fd;font:600 14px var(--sn-bd,system-ui);text-decoration:none}
+.fpv h1{font:800 clamp(26px,3.4vw,40px)/1.1 var(--sn-hd,system-ui);letter-spacing:-.02em;color:#fff;margin:0 0 6px}
+.fpv h1 span{color:#7f8a99;font-weight:600}
+.fp-sub{color:#aab4c2;font:500 15px/1.45 var(--sn-bd,system-ui);margin:0 0 20px}
+.fp-sub a{color:#93c5fd}
+.fp-h{font:800 20px var(--sn-hd,system-ui);color:#fff;margin:0 0 12px}
+.fp-h small{font:600 13px var(--sn-bd,system-ui);color:#7f8a99;margin-left:6px}
+.fp-plays{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.fp-p{text-align:left;display:block;padding:12px 14px;border-radius:14px;border:1px solid #1E2B45;border-left:5px solid var(--tc);background:#0e1626;color:#cfd6e0;cursor:pointer;font:500 13px/1.35 var(--sn-bd,system-ui)}
+.fp-p:hover{background:#13203a}
+.fp-p.on{border-color:#60a5fa;border-left-color:var(--tc);background:#14264a}
+.fp-p em{display:block;font:800 11px var(--sn-bd,system-ui);letter-spacing:.06em;text-transform:uppercase;color:#ffb21a;font-style:normal}
+.fp-p b{display:block;color:#fff;font:700 15px/1.25 var(--sn-bd,system-ui);margin:3px 0 2px}
+.fp-card em{font-style:normal;color:#ffb21a;font-weight:700}
+@media (max-width:700px){.arena.big .ar-stage{height:min(92vw,520px)}.ar-open{font-size:11px;padding:6px 10px}}
+
+/* ---------- win probability ---------- */
+.wpb{margin:4px 0 14px}
+.wpb-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+.wpb-h span{font:800 13px var(--sn-bd,system-ui);letter-spacing:.06em;text-transform:uppercase;color:#93c5fd}
+.wpb-h small{font:500 12px var(--sn-bd,system-ui);color:#7f8a99}
+.wpb-r{display:grid;grid-template-columns:auto minmax(60px,1fr) auto;align-items:center;gap:10px}
+.wpb-t{display:inline-flex;align-items:center;gap:6px;font:700 14px var(--sn-bd,system-ui);color:#aab4c2;white-space:nowrap}
+.wpb-t em{font:800 20px var(--sn-hd,system-ui);font-style:normal;color:#cfd6e0;font-variant-numeric:tabular-nums}
+.wpb-t.wpf em{color:#fff}
+.wpb-r .tlogo{width:22px;height:22px;object-fit:contain}
+.wpb-bar{display:flex;height:10px;border-radius:999px;overflow:hidden;background:#1b2435;gap:2px}
+.wpb-bar i{display:block;height:100%;min-width:3px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.wpb.sm{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px;margin:8px 0 0}
+.wpb.sm em{font:700 11px var(--sn-bd,system-ui);font-style:normal;color:#8b95a3;font-variant-numeric:tabular-nums}
+.wpb.sm em.wpf{color:#fff}
+.wpb.sm .wpb-bar{height:5px}
+.wpbox{margin:12px 0 0;padding:12px 0 0;border-top:1px solid #1E2B45}
+.ar-bigbtn{background:#0e1626}
+.ar-act .ar-btn{flex:0 1 auto}
+.wpb em,.wpb span,.wpb-bar{border:0!important;box-shadow:none!important;padding:0!important;min-width:0}
+.wpb .wpb-t,.wpb em{background:none!important}
+.arena.big .ar-side{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+/* win probability graph */
+.wpc{margin:14px 0 6px}
+.wpc-svg{display:block;width:100%;height:auto;max-height:260px}
+.wpc-grid line{stroke:#1f2a3c;stroke-width:1}
+.wpc-grid line.mid{stroke:#5b6678;stroke-dasharray:4 4}
+.wpc-per{stroke:#2a3548;stroke-width:1}
+.wpc-pl{font:700 11px var(--sn-bd,system-ui);fill:#7f8a99;text-anchor:middle}
+.wpc-ax{font:700 11px var(--sn-bd,system-ui);fill:#aab4c2;text-anchor:end}
+.wpc-line{fill:none;stroke:#fff;stroke-width:2.2;stroke-linejoin:round}
+.wpc-pk{fill:#ffb21a;stroke:#0b0f17;stroke-width:2}
+.wpc-pt{font:800 11.5px var(--sn-bd,system-ui);fill:#ffd27a;paint-order:stroke;stroke:#0b0f17;stroke-width:3px}
+.wpc-now{fill:#fff;stroke:#0b0f17;stroke-width:2}
+.wpc-n{margin:6px 0 0;font:600 13px var(--sn-bd,system-ui);color:#cfd6e0}
+.fp-wp{max-width:900px;margin:0 0 22px;padding:14px 16px;border:1px solid #1E2B45;border-radius:16px;background:#0e1626}

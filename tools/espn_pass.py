@@ -87,8 +87,69 @@ def longest(players_side, group):
     return best
 
 
+SUMMARIES = {}
+
+
+def pct(v):
+    """ESPN gives win probability as 0-1 (live) or 0-100 (pregame projection). Returns home % 0-100."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return None
+    if v <= 1.0:
+        v *= 100
+    return round(max(0.0, min(100.0, v)), 1)
+
+
+def win_prob(s, h_id):
+    """Home team's win chance from a summary: the live win-probability line, else ESPN's pregame projection."""
+    wp = s.get("winprobability") or []
+    if wp:
+        v = pct((wp[-1] or {}).get("homeWinPercentage"))
+        if v is not None:
+            return v, "live"
+    pr = s.get("predictor") or {}
+    ht, at = pr.get("homeTeam") or {}, pr.get("awayTeam") or {}
+    if str(ht.get("id", h_id)) != str(h_id) and str(at.get("id")) == str(h_id):
+        ht, at = at, ht
+    v = pct(ht.get("gameProjection"))
+    if v is None and at.get("gameProjection") is not None:
+        a = pct(at.get("gameProjection"))
+        v = None if a is None else round(100 - a, 1)
+    return (v, "pre") if v is not None else (None, None)
+
+
+def wp_series(s, n=90):
+    """The live win-probability line as [[home %, period], ...], thinned to about n points
+    (each team's peak is always kept so comebacks and collapses stay visible)."""
+    wp = s.get("winprobability") or []
+    per = {}
+    for p in s.get("plays") or []:
+        per[str(p.get("id"))] = num((p.get("period") or {}).get("number"))
+    for d in ((s.get("drives") or {}).get("previous") or []) + ([(s.get("drives") or {}).get("current")] if (s.get("drives") or {}).get("current") else []):
+        for p in (d or {}).get("plays") or []:
+            per[str(p.get("id"))] = num((p.get("period") or {}).get("number"))
+    pts, last = [], 1
+    for w in wp:
+        v = pct((w or {}).get("homeWinPercentage"))
+        if v is None:
+            continue
+        q = per.get(str((w or {}).get("playId")), 0) or last
+        last = q
+        pts.append([v, q])
+    if len(pts) <= n:
+        return pts
+    keep = {0, len(pts) - 1}
+    keep.add(max(range(len(pts)), key=lambda i: pts[i][0]))
+    keep.add(min(range(len(pts)), key=lambda i: pts[i][0]))
+    step = (len(pts) - 1) / float(n - len(keep))
+    keep.update(int(round(i * step)) for i in range(n - len(keep) + 1))
+    return [pts[i] for i in sorted(k for k in keep if 0 <= k < len(pts))]
+
+
 def football_extras(path, ev_id, a_id, h_id, a_ab, h_ab):
     s = get(BASE + path + "/summary?event=" + ev_id)
+    SUMMARIES[ev_id] = s
     scoring, sline = [], {}
     for p in s.get("scoringPlays") or []:
         per = period_label((p.get("period") or {}).get("number"))
@@ -337,6 +398,7 @@ P_MISS = re.compile(r"^(.+?)\s+misses\b")
 def hoops_extras(path, ev_id, key, a_id, h_id, a_ab, h_ab):
     """Shot chart (last 90 field-goal tries) and highlight plays (made threes, dunks, blocks)."""
     s = get(BASE + path + "/summary?event=" + ev_id)
+    SUMMARIES[ev_id] = s
     ab = {a_id: a_ab, h_id: h_ab}
     shots, hl, miss = [], [], None
     for p in s.get("plays") or []:
@@ -427,6 +489,11 @@ def ufc_card():
             "venue": (((ev.get("competitions") or [{}])[0].get("venue") or {}).get("fullName")), "bouts": bouts}
 
 
+PRE_HOURS = 30          # pregame projections for games starting within this many hours
+PRE_REFRESH = 3 * 3600  # re-ask ESPN for a pregame projection at most this often
+PREV_WP = {}
+
+
 def league(key, path, q):
     url = BASE + path + "/scoreboard" + ("?" + q if q else "")
     sb = get(url)
@@ -439,9 +506,12 @@ def league(key, path, q):
         if not home or not away:
             continue
         st = status(ev)
-        if st == "scheduled":
-            continue
         ta, th = away.get("team") or {}, home.get("team") or {}
+        if st == "scheduled":
+            pre = pregame(key, path, ev, ta, th)
+            if pre:
+                games.append(pre)
+            continue
         stt = ev.get("status") or {}
         g = {
             "lg": key, "id": str(ev.get("id")),
@@ -469,14 +539,68 @@ def league(key, path, q):
                     g["sh"], g["hl"], g["rp"] = hoops_extras(path, g["id"], key, str(ta.get("id")), str(th.get("id")), g["a"], g["h"])
                 except Exception as e:
                     print("summary %s %s failed: %s" % (key, g["id"], e), file=sys.stderr)
+        g.update(live_wp(comp, g, str(th.get("id")), st))
         games.append(g)
     return games
+
+
+def live_wp(comp, g, h_id, st):
+    if st in ("closed", "complete"):
+        if g["as"] == g["hs"]:
+            return {}
+        return {"wp": 100.0 if g["hs"] > g["as"] else 0.0, "wps": "final"}
+    s = SUMMARIES.get(g["id"])
+    if s:
+        v, src = win_prob(s, h_id)
+        if v is not None:
+            out = {"wp": v, "wps": src}
+            line = wp_series(s)
+            if len(line) > 1:
+                out["wpl"] = line
+            return out
+    lp = ((comp.get("situation") or {}).get("lastPlay") or {}).get("probability") or {}
+    v = pct(lp.get("homeWinPercentage"))
+    return {"wp": v, "wps": "live"} if v is not None else {}
+
+
+def pregame(key, path, ev, ta, th):
+    """A scheduled game starting soon, with ESPN's pregame win projection (cached between passes)."""
+    try:
+        start = datetime.datetime.fromisoformat(ev.get("date", "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if not (0 <= (start - now).total_seconds() <= PRE_HOURS * 3600):
+        return None
+    g = {"lg": key, "id": str(ev.get("id")), "a": ta.get("abbreviation", "?"), "h": th.get("abbreviation", "?"),
+         "an": ta.get("displayName", ""), "hn": th.get("displayName", ""), "as": 0, "hs": 0,
+         "status": "scheduled", "start": ev.get("date", "")}
+    old = PREV_WP.get(g["id"])
+    if old and time.time() - old.get("t", 0) < PRE_REFRESH:
+        g.update({"wp": old["h"], "wps": "pre", "wpt": old["t"]})
+        return g
+    try:
+        v, src = win_prob(get(BASE + path + "/summary?event=" + g["id"]), str(th.get("id")))
+    except Exception as e:
+        print("pregame %s %s failed: %s" % (key, g["id"], e), file=sys.stderr)
+        v = None
+    if v is None:
+        return None
+    g.update({"wp": v, "wps": "pre", "wpt": int(time.time())})
+    return g
 
 
 def main():
     out_dir = sys.argv[1] if len(sys.argv) > 1 else "/tmp/vault_live"
     os.makedirs(out_dir, exist_ok=True)
     fetched, games = [], []
+    try:
+        with open(os.path.join(out_dir, "scores.json")) as f:
+            for v in (json.load(f).get("wp") or {}).values():
+                if v.get("s") == "pre" and v.get("id"):
+                    PREV_WP[str(v["id"])] = v
+    except Exception:
+        pass
     for key, (path, q) in LEAGUES.items():
         try:
             gs = league(key, path, q)

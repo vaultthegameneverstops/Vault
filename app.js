@@ -365,6 +365,7 @@ function route(){
   else if(h==="scores")html=vScores();
   else if(h==="highlights"&&window.VHL){html=VHL.view();title="Highlights — VAULT"}
   else if(h==="columns"&&window.VCOL){html=VCOL.view();title="VAULT Writers — VAULT"}
+  else if(h.indexOf("field-")===0&&window.VFLD){html=VFLD.view(h.slice(6));title=VFLD.title(h.slice(6))}
   else if(h.indexOf("game-")===0){html=vGame(h.slice(5));var gg=gameById(h.slice(5));if(gg)title=teamName(gg,"a")+" at "+teamName(gg,"h")+" — VAULT"}
   else if(h==="debates")html=vDebates();
   else if(h==="saved")html=vSaved();
@@ -378,12 +379,12 @@ function route(){
   else{h="home";html=vHome()}
   cur=h;
   var v=$("#view");v.classList.remove("noanim");v.style.animation="none";void v.offsetWidth;v.style.animation="";
-  v.innerHTML=html;document.title=title;if(h==="social"&&window.VSocial)VSocial.after();if(h==="highlights"&&window.VHL)VHL.after();if(h==="columns"&&window.VCOL)VCOL.after();
-  var key=window.VX&&VX.match(h)?"vx":h.indexOf("story-")===0?(byId(h.slice(6))||{}).sport:h.indexOf("game-")===0?"scores":h;
+  v.innerHTML=html;document.title=title;if(h==="social"&&window.VSocial)VSocial.after();if(h==="highlights"&&window.VHL)VHL.after();if(h==="columns"&&window.VCOL)VCOL.after();if(h.indexOf("field-")===0&&window.VFLD)VFLD.after();
+  var key=window.VX&&VX.match(h)?"vx":h.indexOf("story-")===0?(byId(h.slice(6))||{}).sport:h.indexOf("game-")===0||h.indexOf("field-")===0?"scores":h;
   var navKey=key==="nba"?"basketball":key==="cfb"?"college":key==="cbb"?"college-basketball":key;
   renderNav(navKey);
 }
-function rerender(keepScroll){var y=window.scrollY;var v=$("#view");v.classList.add("noanim");v.innerHTML=({home:vHome,mma:function(){return vSport("mma","MMA")},nfl:function(){return vSport("nfl","NFL")},basketball:function(){return vSport("nba","NBA")},college:function(){return vSport("cfb","College Football")},"college-basketball":function(){return vSport("cbb","College Basketball")},scores:vScores,highlights:function(){return window.VHL?VHL.view():""},columns:function(){return window.VCOL?VCOL.view():""},debates:vDebates,saved:vSaved,trending:vTrending,breaking:vBreaking,search:vSearch,social:function(){return window.VSocial?VSocial.view():""}}[cur]||function(){return window.VLegal&&VLegal.match(cur)?VLegal.view(cur):window.VX&&VX.match(cur)?VX.view(cur):cur.indexOf("game-")===0?vGame(cur.slice(5)):vStory(cur.slice(6))})();if(cur==="social"&&window.VSocial)VSocial.after();if(keepScroll)window.scrollTo(0,y)}
+function rerender(keepScroll){var y=window.scrollY;var v=$("#view");v.classList.add("noanim");v.innerHTML=({home:vHome,mma:function(){return vSport("mma","MMA")},nfl:function(){return vSport("nfl","NFL")},basketball:function(){return vSport("nba","NBA")},college:function(){return vSport("cfb","College Football")},"college-basketball":function(){return vSport("cbb","College Basketball")},scores:vScores,highlights:function(){return window.VHL?VHL.view():""},columns:function(){return window.VCOL?VCOL.view():""},debates:vDebates,saved:vSaved,trending:vTrending,breaking:vBreaking,search:vSearch,social:function(){return window.VSocial?VSocial.view():""}}[cur]||function(){return window.VLegal&&VLegal.match(cur)?VLegal.view(cur):window.VX&&VX.match(cur)?VX.view(cur):cur.indexOf("field-")===0&&window.VFLD?VFLD.view(cur.slice(6)):cur.indexOf("game-")===0?vGame(cur.slice(5)):vStory(cur.slice(6))})();if(cur.indexOf("field-")===0&&window.VFLD)VFLD.after();if(cur==="social"&&window.VSocial)VSocial.after();if(keepScroll)window.scrollTo(0,y)}
 var curNav="home";
 function renderNav(active){curNav=active;
   var h=NAV.map(function(n){return '<a href="#'+n[0]+'" class="'+(n[0]===active?"on":"")+'"'+(n[0]===active?' aria-current="page"':"")+'>'+n[1]+(n[0]==="saved"&&savedList().length?' ('+savedList().length+')':"")+(n[2]?'<i class="dot"></i>':"")+'</a>'}).join("");

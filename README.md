@@ -39,6 +39,9 @@ UFC: the current or next fight card (bouts, records, live round, results) shows 
 Team logos and colors come from the ESPN scoreboard feed and appear on scores, the ticker, game pages, the arena and highlights.
 VAULT Writers (`#columns`): fictional writers file a column and quick takes on every game, live and final. Facts come from ESPN; the opinions are invented and labeled as takes.
 To turn logos off, set `LOGOS_ON=false` in `app.js`.
+Field pages (`#field-<game id>`): tap the stadium or "See the field bigger" to open the field full size. Drag to spin, scroll or +/− to zoom, and pick any big play to replay it.
+Win probability: each pass reads ESPN's live win probability (and ESPN's pregame projection for games starting within 30 hours) into `scores.json` → `wp`. It shows as a bar on score cards, game pages and the stadium panel, and as a full-game graph (each team's peak and the biggest swing marked) on game and field pages.
+
 
 ## Ads (Google AdSense)
 Ads are **off** until you add your publisher ID. They never run on the claude.ai preview, never appear on policy pages, and are labelled "Advertisement".

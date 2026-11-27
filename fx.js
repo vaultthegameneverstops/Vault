@@ -178,7 +178,7 @@ function loadPlays(){
  return fetch("plays.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
   var sig=JSON.stringify(d.games||{});if(sig===plSig)return;var first=!plSig;plSig=sig;PL=d;Object.keys(d.games||{}).forEach(function(id){plSort(d.games[id].plays||[])});syncMeta();
   Object.keys(d.games||{}).forEach(function(id){var e=d.games[id];(e.plays||[]).forEach(function(x){var k=id+"|"+x.key;if(plSeen[k])return;plSeen[k]=1;if(!first&&Date.now()-plBoot>8000&&x.big)bigPlay(id,e,x)})});
-  render(false);gamePage();gameColumns();booth();bottomLine();bpRefresh();if((location.hash||"")==="#columns")wcFill();if((location.hash||"")==="#highlights")hlFill();
+  render(false);gamePage();gameColumns();booth();bottomLine();bpRefresh();if((location.hash||"")==="#columns")wcFill();if((location.hash||"")==="#highlights")hlFill();if(fieldId())fpList();
  }).catch(function(){})}
 var toastQ=[],toastOn=false;
 function bigPlay(id,e,x){
@@ -346,8 +346,43 @@ function miniCourt(g,h,anim,sh){return courtSVG(g).replace("</svg>",hoopsSVG(g,h
 function hoops(g){var l=String(g.lg).toUpperCase();return l==="NBA"||l==="CBB"}
 
 /* ---------- UFC fight card (scores.json "ufc", from the ESPN MMA scoreboard) ---------- */
-var UFC=null;
-function loadUFC(){return fetch("scores.json?u="+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){var n=JSON.stringify(d.ufc||null);if(n!==loadUFC.s){loadUFC.s=n;UFC=d.ufc||null;fightCard(true);if(AR)render(true)}}).catch(function(){})}
+var UFC=null,WP={};
+/* ---------- win probability (scores.json "wp": home team %, from ESPN's live win probability or pregame projection) ---------- */
+function wpOf(g){var w=g&&WP[gid(g)];if(!w||w.h==null||w.s==="final")return null;if(w.s!=="pre"&&!isLive(g))return null;var h=Math.round(+w.h);h=Math.max(0,Math.min(100,h));return{h:h,a:100-h,s:w.s}}
+function wpBar(g,compact){var w=wpOf(g);if(!w)return "";var ca=tcol(g.lg,g.a),ch=tcol(g.lg,g.h),fav=w.h>w.a?"h":w.a>w.h?"a":"";
+ var bar='<div class="wpb-bar" role="img" aria-label="'+esc(g.a)+" "+w.a+"%, "+esc(g.h)+" "+w.h+'%"><i style="width:'+w.a+'%;background:'+ca+'"></i><i style="width:'+w.h+'%;background:'+ch+'"></i></div>';
+ if(compact)return '<div class="wpb sm"><em'+(fav==="a"?' class="wpf"':"")+'>'+w.a+'%</em>'+bar+'<em'+(fav==="h"?' class="wpf"':"")+'>'+w.h+'%</em></div>';
+ return '<div class="wpb"><div class="wpb-h"><span>Win probability</span><small>'+(w.s==="pre"?"ESPN pregame projection":"Live · ESPN")+'</small></div><div class="wpb-r"><span class="wpb-t'+(fav==="a"?' wpf':"")+'">'+logoImg(g.lg,g.a,"sm",40)+esc(g.a)+' <em>'+w.a+'%</em></span>'+bar+'<span class="wpb-t'+(fav==="h"?' wpf':"")+'"><em>'+w.h+'%</em> '+esc(g.h)+logoImg(g.lg,g.h,"sm",40)+'</span></div></div>'}
+/* win probability over the game: home team above the 50% line, away team below; each team's peak is marked */
+var WPC=0;
+function perLabel(g,p){var L=String(g.lg).toUpperCase();if(L==="CBB")return p>2?"OT":"H"+p;return p>4?"OT":"Q"+p}
+function wpChart(g){var w=g&&WP[gid(g)],l=w&&w.l;if(!l||l.length<2)return "";
+ var id="wpc"+(++WPC),W=640,H=200,L=44,R=14,T=14,B=26,iw=W-L-R,ih=H-T-B,n=l.length,ca=hexOf(tcol(g.lg,g.a)),ch=hexOf(tcol(g.lg,g.h));
+ var X=function(i){return L+iw*i/(n-1)},Y=function(v){return T+ih*(1-v/100)},mid=Y(50);
+ var line=l.map(function(q,i){return (i?"L":"M")+X(i).toFixed(1)+" "+Y(q[0]).toFixed(1)}).join(""),area=line+"L"+X(n-1).toFixed(1)+" "+mid+"L"+L+" "+mid+"Z";
+ var s='<svg class="wpc-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Win probability through the game">';
+ s+='<g class="wpc-grid">'+[0,25,50,75,100].map(function(v){return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'"'+(v===50?' class="mid"':"")+'/>'}).join("")+'</g>';
+ var lp=null;l.forEach(function(q,i){if(q[1]!==lp){if(i)s+='<line class="wpc-per" x1="'+X(i).toFixed(1)+'" x2="'+X(i).toFixed(1)+'" y1="'+T+'" y2="'+(H-B)+'"/>';var j=i;while(j<n&&l[j][1]===q[1])j++;s+='<text class="wpc-pl" x="'+((X(i)+X(j-1))/2).toFixed(1)+'" y="'+(H-8)+'">'+esc(perLabel(g,q[1]))+'</text>';lp=q[1]}});
+ var pts=[];l.forEach(function(q,i){if(i){var a=l[i-1][0],b=q[0];if((a-50)*(b-50)<0){var t=(50-a)/(b-a);pts.push([i-1+t,50])}}pts.push([i,q[0]])});
+ var band=function(up){return "M"+L+" "+mid+pts.map(function(p){var v=up?Math.max(50,p[1]):Math.min(50,p[1]);return "L"+X(p[0]).toFixed(1)+" "+Y(v).toFixed(1)}).join("")+"L"+X(n-1).toFixed(1)+" "+mid+"Z"};
+ s+='<path d="'+band(true)+'" fill="'+ch+'" fill-opacity=".6"/><path d="'+band(false)+'" fill="'+ca+'" fill-opacity=".6"/>';
+ s+='<path class="wpc-line" d="'+line+'"/>';
+ s+='<text class="wpc-ax" x="'+(L-8)+'" y="'+(T+10)+'">'+esc(g.h)+'</text><text class="wpc-ax" x="'+(L-8)+'" y="'+(mid+4)+'">50%</text><text class="wpc-ax" x="'+(L-8)+'" y="'+(H-B)+'">'+esc(g.a)+'</text>';
+ var hi=0,lo=0;l.forEach(function(q,i){if(q[0]>l[hi][0])hi=i;if(q[0]<l[lo][0])lo=i});
+ function mark(i,team,val,up){var x=X(i),y=Y(l[i][0]),anchor=x>W-130?"end":x<L+90?"start":"middle",ty=up?Math.max(T+11,y-10):Math.min(H-B-4,y+18);
+  return '<circle class="wpc-pk" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4.5"/><text class="wpc-pt" x="'+x.toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="'+anchor+'">'+esc(team)+' peak '+Math.round(val)+'%</text>'}
+ if(l[hi][0]>50)s+=mark(hi,g.h,l[hi][0],true);
+ if(l[lo][0]<50)s+=mark(lo,g.a,100-l[lo][0],false);
+ var e=l[n-1];s+='<circle class="wpc-now" cx="'+X(n-1).toFixed(1)+'" cy="'+Y(e[0]).toFixed(1)+'" r="5"/>';
+ var sw=0,sa=0,sb=0;for(var i=0;i<n;i++)for(var j=i+1;j<n;j++){var d=Math.abs(l[j][0]-l[i][0]);if(d>sw){sw=d;sa=i;sb=j}}
+ var lead=function(v){return v>=50?g.h+" "+Math.round(v)+"%":g.a+" "+Math.round(100-v)+"%"};
+ var note=sw>=30?'<p class="wpc-n">Biggest swing: '+esc(lead(l[sa][0]))+' → '+esc(lead(l[sb][0]))+' ('+esc(perLabel(g,l[sa][1]))+(l[sb][1]!==l[sa][1]?"–"+esc(perLabel(g,l[sb][1])):"")+')</p>':"";
+ return '<div class="wpc"><div class="wpb-h"><span>Win probability, all game</span><small>ESPN</small></div>'+s+'</svg>'+note+'</div>'}
+function wpCards(){document.querySelectorAll("#view .sc[data-game]").forEach(function(c){var a=A(),g=null;if(!a||!a.D)return;(a.D.ticker||[]).forEach(function(x){if(gid(x)===c.getAttribute("data-game"))g=x});
+ var old=c.querySelector(".wpb"),html=g?wpBar(g,true):"";if(old){if(old.outerHTML!==html){if(html)old.outerHTML=html;else old.remove()}}else if(html)c.insertAdjacentHTML("beforeend",html)})}
+function wpGame(){var h=(location.hash||"").slice(1);if(h.indexOf("game-")!==0)return;var gm=$("#view article .gm");if(!gm)return;var a=A(),g=null;((a&&a.D&&a.D.ticker)||[]).forEach(function(x){if(gid(x)===h.slice(5))g=x});
+ var box=$("#view .wpbox");var html=g?wpBar(g,false)+wpChart(g):"";if(!html){if(box)box.remove();return}if(!box){box=document.createElement("div");box.className="wpbox";gm.appendChild(box)}if(box.innerHTML!==html)box.innerHTML=html}
+function loadUFC(){return fetch("scores.json?u="+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){var n=JSON.stringify(d.ufc||null);if(n!==loadUFC.s){loadUFC.s=n;UFC=d.ufc||null;fightCard(true);if(AR)render(true)}var nw=JSON.stringify(d.wp||{});if(nw!==loadUFC.w){loadUFC.w=nw;WP=d.wp||{};side.k=null;if(AR&&!AR.hidden){var cg=current();if(cg&&!mma(cg))side(cg)}wpCards();wpGame();if(fieldId())fpList()}}).catch(function(){})}
 function fcWhen(t){try{var d=new Date(t);return d.toLocaleString([], {weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}catch(_){return ""}}
 function fcFighter(f,side,b){var fin=b.state==="post";return '<div class="fc-f '+side+(fin&&f.w?" win":"")+(fin&&!f.w&&b.f.some(function(z){return z.w})?" lose":"")+'">'+(f.fl?'<img class="fc-fl" src="'+esc(f.fl)+'" alt="'+esc(f.ct||"")+'" loading="lazy" onerror="this.remove()">':"")+'<div><b>'+esc(f.n)+'</b><small>'+esc(f.r||"")+(f.ct?" · "+esc(f.ct):"")+'</small></div>'+(fin&&f.w?'<em>W</em>':"")+'</div>'}
 function fcBout(b,i,n){var main=i===0,lv=b.state==="in",st=lv?"LIVE"+(b.rd?" · R"+b.rd:"")+(b.clk&&b.clk!=="-"?" "+b.clk:""):b.state==="post"?(b.det||"Final"):fcWhen(b.date);
@@ -442,7 +477,8 @@ function gameColumns(){var h=(location.hash||"").slice(1);if(h.indexOf("game-")!
 var AR=null,sel=null,st={rx:58,rz:-16,drag:false,idle:0,t0:performance.now(),vis:true},seen={};
 var PAGE_LG={nfl:"NFL",basketball:"NBA",college:"CFB","college-basketball":"CBB",mma:"MMA"};
 function page(){return (location.hash||"").slice(1)||"home"}
-function onArenaPage(){var h=page();return h==="home"||h==="scores"||h in PAGE_LG}
+function fieldId(){var h=page();return h.indexOf("field-")===0?h.slice(6):null}
+function onArenaPage(){var h=page();return h==="home"||h==="scores"||h in PAGE_LG||!!fieldId()}
 function ufcGame(){if(!UFC||!UFC.bouts||!UFC.bouts.length)return null;var bs=UFC.bouts,b=bs.filter(function(x){return x.state==="in"})[0]||bs[0];
  var f0=b.f&&b.f[0]||{n:"TBA"},f1=b.f&&b.f[1]||{n:"TBA"},ln=function(n){return String(n||"TBA").trim().split(/\s+/).pop().toUpperCase()};
  var lv=b.state==="in",fin=b.state==="post";
@@ -454,15 +490,19 @@ function arenaGames(){var h=page(),L=PAGE_LG[h],l=games().filter(function(g){ret
 function build(){
  var app=$("#app"),view=$("#view");if(!app||!view)return;
  AR=document.createElement("section");AR.className="arena";AR.id="arena";AR.setAttribute("aria-label","Live Arena");
- AR.innerHTML='<div class="ar-in"><div class="ar-stage" id="arStage" tabindex="0" aria-label="3D stadium. Drag or use arrow keys to look around."><div class="ar-cam"><div class="ar-world" id="arWorld"></div></div><div class="ar-fx" id="arFx"></div><div class="ar-hlw" id="arHlc" aria-live="polite"></div><div class="ar-hint" id="arHint">Drag to spin the stadium</div></div>'+
+ AR.innerHTML='<div class="ar-in"><div class="ar-stage" id="arStage" tabindex="0" aria-label="3D stadium. Drag or use arrow keys to look around."><div class="ar-cam"><div class="ar-world" id="arWorld"></div></div><div class="ar-fx" id="arFx"></div><div class="ar-hlw" id="arHlc" aria-live="polite"></div><div class="ar-hint" id="arHint">Drag to spin · tap the field to open it</div><a class="ar-open" id="arOpen" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2"/></svg>See the field bigger</a><div class="ar-zoom" role="group" aria-label="Zoom"><button type="button" data-z="1" aria-label="Zoom in">+</button><button type="button" data-z="-1" aria-label="Zoom out">−</button><button type="button" data-z="0" aria-label="Reset view">Reset</button></div></div>'+
  '<div class="ar-side" id="arSide" aria-live="polite"></div></div>';
  app.insertBefore(AR,view);
  var stg=$("#arStage"),lx=0,ly=0;
- stg.addEventListener("pointerdown",function(e){st.drag=true;lx=e.clientX;ly=e.clientY;try{stg.setPointerCapture(e.pointerId)}catch(_){}hint()});
- stg.addEventListener("pointermove",function(e){if(!st.drag)return;st.rz+=(e.clientX-lx)*.35;st.rx=Math.max(34,Math.min(74,st.rx-(e.clientY-ly)*.2));lx=e.clientX;ly=e.clientY;st.idle=performance.now();apply()});
- ["pointerup","pointercancel","lostpointercapture"].forEach(function(t){stg.addEventListener(t,function(){st.drag=false;st.idle=performance.now()})});
- stg.addEventListener("keydown",function(e){var k=e.key;if(k==="ArrowLeft")st.rz-=8;else if(k==="ArrowRight")st.rz+=8;else if(k==="ArrowUp")st.rx=Math.min(74,st.rx+4);else if(k==="ArrowDown")st.rx=Math.max(34,st.rx-4);else return;e.preventDefault();st.idle=performance.now();hint();apply()});
- var ro=new ResizeObserver(function(){var w=stg.clientWidth,h=stg.clientHeight;var sc=Math.min(w/880,h/520);$("#arWorld").style.setProperty("--sc",Math.max(.34,Math.min(1.08,sc)).toFixed(3))});ro.observe(stg);
+ var dx0=0,dy0=0,moved=0;
+ stg.addEventListener("pointerdown",function(e){if(e.target.closest(".ar-zoom,.ar-open"))return;dx0=e.clientX;dy0=e.clientY;moved=0;st.drag=true;lx=e.clientX;ly=e.clientY;try{stg.setPointerCapture(e.pointerId)}catch(_){}hint()});
+ stg.addEventListener("pointermove",function(e){if(!st.drag)return;moved=Math.max(moved,Math.hypot(e.clientX-dx0,e.clientY-dy0));st.rz+=(e.clientX-lx)*.35;st.rx=Math.max(34,Math.min(74,st.rx-(e.clientY-ly)*.2));lx=e.clientX;ly=e.clientY;st.idle=performance.now();apply()});
+ stg.addEventListener("pointerup",function(e){var was=st.drag;st.drag=false;st.idle=performance.now();if(was&&moved<6&&!fieldId()&&sel&&!e.target.closest(".ar-zoom,.ar-open"))location.hash="field-"+sel});
+ ["pointercancel","lostpointercapture"].forEach(function(t){stg.addEventListener(t,function(){st.drag=false;st.idle=performance.now()})});
+ stg.addEventListener("wheel",function(e){if(!fieldId())return;e.preventDefault();zoom(e.deltaY<0?1:-1,.12)},{passive:false});
+ stg.addEventListener("click",function(e){var z=e.target.closest("[data-z]");if(!z)return;var v=+z.getAttribute("data-z");if(v)zoom(v,.25);else{st.fly=1;st.rx=58;st.rz=-16;apply()}hint()});
+ stg.addEventListener("keydown",function(e){var k=e.key;if(k==="+"||k==="=")zoom(1,.2);else if(k==="-")zoom(-1,.2);else if(k==="Enter"&&!fieldId()&&sel)location.hash="field-"+sel;else if(k==="ArrowLeft")st.rz-=8;else if(k==="ArrowRight")st.rz+=8;else if(k==="ArrowUp")st.rx=Math.min(74,st.rx+4);else if(k==="ArrowDown")st.rx=Math.max(34,st.rx-4);else return;e.preventDefault();st.idle=performance.now();hint();apply()});
+ var ro=new ResizeObserver(function(){var w=stg.clientWidth,h=stg.clientHeight;var sc=Math.min(w/880,h/520);$("#arWorld").style.setProperty("--sc",Math.max(.34,Math.min(AR.classList.contains("big")?2.2:1.08,sc)).toFixed(3))});ro.observe(stg);
  var io=new IntersectionObserver(function(en){st.vis=en[0].isIntersecting});io.observe(stg);
  AR.addEventListener("click",function(e){
   var c=e.target.closest("[data-ar]");if(c){sel=c.getAttribute("data-ar");userSel=true;render(true);return}
@@ -471,7 +511,8 @@ function build(){
  if(!RM)requestAnimationFrame(loop);
 }
 function hint(){var h=$("#arHint");if(h)h.classList.add("gone")}
-function apply(){var w=$("#arWorld");if(!w)return;w.style.setProperty("--rx",st.rx.toFixed(2)+"deg");w.style.setProperty("--rz",st.rz.toFixed(2)+"deg")}
+function zoom(d,step){st.fly=Math.max(.6,Math.min(2.6,(st.fly||1)*(d>0?1+step:1/(1+step))));st.idle=performance.now();apply()}
+function apply(){var w=$("#arWorld");if(!w)return;w.style.setProperty("--fly",(st.fly||1).toFixed(3));w.style.setProperty("--rx",st.rx.toFixed(2)+"deg");w.style.setProperty("--rz",st.rz.toFixed(2)+"deg")}
 function loop(now){
  if(AR&&!AR.hidden&&st.vis&&!document.hidden&&!st.drag&&now-st.idle>2500){
   var t=(now-st.t0)/1000;st.rz+=((-16+Math.sin(t*.18)*26)-st.rz)*.02;st.rx+=((58+Math.sin(t*.11)*4)-st.rx)*.02;apply()}
@@ -479,11 +520,14 @@ function loop(now){
 var PRI={NFL:0,NBA:1,CFB:2,CBB:3,MMA:4},userSel=false;function pr(g){var k=String(g.lg).toUpperCase();return k in PRI?PRI[k]:9}
 function current(){var l=arenaGames();if(!l.length)return null;var g=null;for(var i=0;i<l.length;i++)if(gid(l[i])===sel)g=l[i];if(g&&!userSel&&!isLive(g)&&l.some(isLive))g=null;
 if(!g){var lv=l.filter(isLive),pool=lv.length?lv:l;g=pool.slice().sort(function(x,y){return pr(x)-pr(y)})[0];sel=gid(g)}return g}
-var lastKind=null,lastSel=null;
+var lastKind=null,lastSel=null,arPick=null;
 function render(full){
  if(!AR)return;syncMeta();
  AR.hidden=!onArenaPage()||!arenaGames().length;if(AR.hidden)return;
+ var fid=fieldId(),big=!!fid;if(fid&&sel!==fid){sel=fid;userSel=true}
+ if(AR.classList.contains("big")!==big){AR.classList.toggle("big",big);if(!big){st.fly=1;arPick=null}full=true;window.dispatchEvent(new Event("resize"))}
  var g=current();if(!g)return;
+ var op=$("#arOpen");if(op)op.setAttribute("href","#field-"+sel);
  var fb=football(g),oc=mma(g),kind=(oc?"o":fb?"f":"c")+sel,w=$("#arWorld");
  if(full||kind!==lastKind){
   var ca=tcol(g.lg,g.a),ch=tcol(g.lg,g.h);
@@ -508,7 +552,7 @@ function render(full){
 function arPlay(g){
  var sv=document.getElementById("arPlay"),cap=document.getElementById("arHlc");if(mma(g)){var b=g.bout||{},k0="mma|"+g.st+"|"+g.as+g.hs;if(k0===arPlay.k)return;arPlay.k=k0;if(sv)sv.innerHTML="";if(cap)cap.innerHTML='<div class="ar-hl" style="--tc:#c8102e"><em>'+(isLive(g)?"Live · "+esc(clock(g)):g.pre?"Next · "+esc(g.when):"Result")+'</em><b>'+esc(g.an+" vs "+g.hn)+'</b><span>'+esc((b.wc||"")+(b.state==="post"&&b.det?" · "+b.det:""))+'</span></div>';return}
  if(!football(g)&&!hoops(g)){if(cap)cap.innerHTML="";return}
- var id=gid(g),e=PL&&PL.games&&PL.games[id],x=lastHl(id),k=x?id+"|"+x.key:id+"|"+(e&&e.sh?e.sh.length:0);if(k===arPlay.k)return;arPlay.k=k;
+ var id=gid(g),e=PL&&PL.games&&PL.games[id],x=(arPick&&plays(id).filter(function(p){return p.key===arPick&&p.hl})[0])||lastHl(id),k=x?id+"|"+x.key:id+"|"+(e&&e.sh?e.sh.length:0);if(k===arPlay.k)return;arPlay.k=k;
  if(cap)cap.innerHTML=x?hlCaption(g,x):"";if(!sv)return;
  sv.innerHTML=hoops(g)?hoopsSVG(g,x&&x.hl,true,e&&e.sh):x?playSVG(g,x.hl,true):"";try{sv.setCurrentTime(0)}catch(_){}}
 function feed(g){var l=plays(gid(g)).slice(-4).reverse();return '<div class="ar-feed"><div class="ar-fh">Play tracker</div>'+(l.length?'<ol class="pls">'+l.map(function(x){return plRow(g,x)}).join("")+'</ol>':'<p class="pt-e">Scoring plays, turnovers and big gains land here as they happen.</p>')+'</div>'}
@@ -523,7 +567,7 @@ function sideMMA(g){
  var list=rest.length?'<div class="ar-feed"><div class="ar-fh">On the card</div><ol class="ar-cardl">'+rest.map(function(x){var f=x.f||[];return '<li><span><b>'+esc((f[0]||{}).n||"TBA")+'</b> vs <b>'+esc((f[1]||{}).n||"TBA")+'</b> · '+esc(x.wc||"")+(x.state==="post"&&x.det?" · "+esc(x.det):x.state==="in"?" · LIVE":"")+'</span></li>'}).join("")+'</ol></div>':"";
  sd.innerHTML='<div class="ar-kick'+(lv?"":" fin")+'"><i></i>'+(lv?"Live now":fin?"Result":"Next up")+' · UFC · '+esc(card.name||"")+'</div>'+row("a","#c8102e")+row("h","#1d4ed8")+
   '<p class="ar-sum">'+esc((b.wc||"")+" · "+(lv?clock(g):fin?(b.det||"Final"):g.when)+(card.venue?" · "+card.venue:""))+'</p>'+list+
-  '<div class="ar-act"><a class="ar-btn pri" href="#mma">Full card</a><button type="button" class="ar-btn" id="arTheater"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v12H3zM8 21h8M12 17v4" fill="none" stroke="currentColor" stroke-width="2"/></svg>Arena view</button></div>'+chipsHTML();
+  '<div class="ar-act"><a class="ar-btn pri" href="#mma">Full card</a><a class="ar-btn ar-bigbtn" href="#field-'+esc(gid(g))+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2"/></svg>See field bigger</a><button type="button" class="ar-btn" id="arTheater"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v12H3zM8 21h8M12 17v4" fill="none" stroke="currentColor" stroke-width="2"/></svg>Arena view</button></div>'+chipsHTML();
  var nc=sd.querySelector(".ar-chips");if(nc)nc.scrollLeft=sl}
 function side(g){
  var lv=isLive(g),aw=g.as>g.hs,hw=g.hs>g.as,an=nm(g,"a"),hn=nm(g,"h"),d=Math.abs(g.as-g.hs);
@@ -533,8 +577,8 @@ function side(g){
  var chips=chipsHTML();
  var sd=$("#arSide"),keep=sd.querySelector(".ar-chips"),sl=keep?keep.scrollLeft:0;
  sd.innerHTML='<div class="ar-kick'+(lv?"":" fin")+'"><i></i>'+(lv?"Live now":"Latest final")+" · "+esc(g.lg)+(g.note?" · "+esc(g.note):"")+" · "+esc(clock(g))+'</div>'+
-  row("a",lv?false:aw)+row("h",lv?false:hw)+'<p class="ar-sum">'+esc(sum)+'</p>'+latestCall(g)+feed(g)+
-  '<div class="ar-act"><a class="ar-btn pri" href="#game-'+esc(gid(g))+'">Full game</a><button type="button" class="ar-btn" id="arTheater"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v12H3zM8 21h8M12 17v4" fill="none" stroke="currentColor" stroke-width="2"/></svg>Arena view</button></div>'+chips;
+  row("a",lv?false:aw)+row("h",lv?false:hw)+'<p class="ar-sum">'+esc(sum)+'</p>'+wpBar(g,false)+latestCall(g)+feed(g)+
+  '<div class="ar-act"><a class="ar-btn pri" href="#game-'+esc(gid(g))+'">Full game</a><a class="ar-btn ar-bigbtn" href="#field-'+esc(gid(g))+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2"/></svg>See field bigger</a><button type="button" class="ar-btn" id="arTheater"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v12H3zM8 21h8M12 17v4" fill="none" stroke="currentColor" stroke-width="2"/></svg>Arena view</button></div>'+chips;
  var nc=sd.querySelector(".ar-chips");if(nc)nc.scrollLeft=sl;
  if(lv){var up=aw?"a":hw?"h":null;sd.querySelectorAll(".ar-row").forEach(function(r,i){if(up&&((i===0&&up==="a")||(i===1&&up==="h")))r.classList.add("up")})}
 }
@@ -559,7 +603,7 @@ function tick(){
    else{var c=AR&&AR.querySelector('[data-ar="'+id+'"]');if(c)setTimeout(function(){var cc=AR.querySelector('[data-ar="'+id+'"]');if(cc)cc.classList.add("ping")},50)}
   }
   seen[id]=[g.as,g.hs]});
- render(false);thRender();bottomLine();bpRefresh()}
+ render(false);if(fieldId())fpList();thRender();bottomLine();bpRefresh()}
 
 /* ---------- score cards: colors + flaps ---------- */
 var cardSeen={};
@@ -585,6 +629,19 @@ if(window.matchMedia&&matchMedia("(hover:hover) and (pointer:fine)").matches&&!R
   el.style.setProperty("--gx",(x*100).toFixed(1)+"%");el.style.setProperty("--gy",(y*100).toFixed(1)+"%")},{passive:true});
  document.addEventListener("pointerleave",function(){if(tcur){tcur.classList.remove("t3d");tcur=null}});
 }
+
+/* ---------- Field page (#field-<game id>): the stadium full size, plus every big play to replay ---------- */
+function findGame(id){var l=arenaGames().concat(games());for(var i=0;i<l.length;i++)if(gid(l[i])===id)return l[i];var u=ufcGame();return u&&gid(u)===id?u:null}
+function fpList(){var box=$("#fpList"),id=fieldId();if(!box||!id)return;var g=findGame(id),tt=$("#fpT");if(g&&tt&&tt.getAttribute("data-ok")!=="1"){tt.setAttribute("data-ok","1");tt.innerHTML=mma(g)?esc(g.an)+" <span>vs</span> "+esc(g.hn):esc(nm(g,"a"))+" <span>at</span> "+esc(nm(g,"h"));document.title=VFLD.title(id)}if(!g){box.innerHTML='<p class="pt-e">This game isn\u2019t on the board right now.</p>';return}
+ if(mma(g)){var bs=(g.card&&g.card.bouts)||[];box.innerHTML='<h2 class="fp-h">'+esc((g.card&&g.card.name)||"Fight card")+'</h2><ol class="ar-cardl fp-card">'+bs.map(function(b,i){var f=b.f||[];return '<li><span><em>'+(i===0?"Main event":i===1?"Co-main":esc(b.wc||""))+'</em> <b>'+esc((f[0]||{}).n||"TBA")+'</b> vs <b>'+esc((f[1]||{}).n||"TBA")+'</b>'+(b.state==="post"&&b.det?" · "+esc(b.det):b.state==="in"?" · LIVE R"+esc(b.rd):"")+'</span></li>'}).join("")+'</ol>';return}
+ var hl=plays(id).filter(function(x){return x.hl}).slice().reverse(),cur=arPick||(hl[0]&&hl[0].key);
+ var ch=wpChart(g);box.innerHTML=(ch?'<div class="fp-wp">'+ch+'</div>':"")+'<h2 class="fp-h">Big plays <small>'+hl.length+'</small></h2>'+(hl.length?'<div class="fp-plays">'+hl.map(function(x){var h=x.hl;return '<button type="button" class="fp-p'+(x.key===cur?" on":"")+'" data-fp="'+esc(x.key)+'" style="--tc:'+tcol(g.lg,hlTeam(h))+'"><em>'+esc(hlKind(h))+" · "+esc(h.t||x.t||"")+'</em><b>'+esc(hlTitle(h))+'</b><span>'+esc(hlSub(h))+'</span></button>'}).join("")+'</div>':'<p class="pt-e">No big plays yet. They show up here as they happen, and each one replays on the field.</p>')}
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-fp]");if(!b)return;arPick=b.getAttribute("data-fp");arPlay.k=null;var g=current();if(g)arPlay(g);fpList();var s=$("#arStage");if(s&&s.getBoundingClientRect().top<0)s.scrollIntoView({behavior:RM?"auto":"smooth",block:"center"})});
+window.VFLD={
+ title:function(id){var g=findGame(id);return g?(mma(g)?g.an+" vs "+g.hn:nm(g,"a")+" at "+nm(g,"h"))+" · Field — VAULT":"Field — VAULT"},
+ view:function(id){var g=findGame(id),t=g?(mma(g)?esc(g.an)+" <span>vs</span> "+esc(g.hn):esc(nm(g,"a"))+" <span>at</span> "+esc(nm(g,"h"))):"The field";
+  return '<section class="fpv"><a class="fp-back" href="javascript:history.back()">← Back</a><h1 id="fpT">'+t+'</h1><p class="fp-sub">'+(g&&mma(g)?"The octagon, live. ":"Pick any big play to replay it on the field. ")+'Drag to spin, scroll or use + and − to zoom.'+(g&&!mma(g)?' <a href="#game-'+esc(id)+'">Full game page →</a>':"")+'</p><div id="fpList"></div></section>'},
+ after:function(){arPick=null;arPlay.k=null;render(true);fpList();window.scrollTo(0,0)}};
 
 /* ---------- Theater (Arena view) ---------- */
 var TH=null,thI=0,thT=null;
@@ -1165,7 +1222,7 @@ function parallax(){return;if(RM)return;var y=window.scrollY;if(Math.abs(y-parY)
 function boot(){
  if(!A()||!A().D){setTimeout(boot,200);return}
  if(!RM)document.documentElement.classList.add("fx-anim");build();tick();decorate();bottomLine();reveal();flyIn();if(AR&&RM)AR.classList.add("settled");
- var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();booth();gamePage();gameColumns();reveal();if((location.hash||"")==="#columns"&&document.getElementById("wcGrid")&&!document.getElementById("wcGrid").children.length)window.VCOL.after();fightCard(false);if((location.hash||"")==="#highlights"&&document.getElementById("hlGrid")&&!document.getElementById("hlGrid").children.length)window.VHL.after()});mo.observe(v,{childList:true})}
+ var v=$("#view");if(v){var mo=new MutationObserver(function(){decorate();wpCards();wpGame();booth();gamePage();gameColumns();reveal();if((location.hash||"")==="#columns"&&document.getElementById("wcGrid")&&!document.getElementById("wcGrid").children.length)window.VCOL.after();fightCard(false);if((location.hash||"")==="#highlights"&&document.getElementById("hlGrid")&&!document.getElementById("hlGrid").children.length)window.VHL.after()});mo.observe(v,{childList:true})}
  setInterval(tick,1000);
  loadPlays();setInterval(function(){if(!document.hidden)loadPlays()},15000);lvStart();setTimeout(lvBoothTick,4000);loadUFC();setInterval(function(){if(!document.hidden)loadUFC()},60000);
  window.addEventListener("hashchange",function(){gpFilter="all";render(true);boothRoute();setTimeout(function(){booth();gamePage()},50)});boothRoute();var nv=$("#nav");if(nv){var nmo=new MutationObserver(function(){if(!nv.querySelector("a.bth-nav"))navLink()});nmo.observe(nv,{childList:true})}var dn=$("#drawerNav");if(dn){var dmo=new MutationObserver(function(){if(!dn.querySelector("a.bth-nav"))navLink()});dmo.observe(dn,{childList:true})}window.addEventListener("scroll",function(){requestAnimationFrame(parallax)},{passive:true});if(window.speechSynthesis)speechSynthesis.onvoiceschanged=function(){bpVoices=null}}
