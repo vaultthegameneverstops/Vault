@@ -23,6 +23,7 @@ jobs:
               await pg.goto("http://localhost:8000/#home")
               await asyncio.sleep(25)
               print("BADGE",await pg.inner_text("#liveBadge") if await pg.query_selector("#liveBadge") else await pg.evaluate("document.body.innerText.match(/\\d+ LIVE[^\\n]*/i)?.[0]"))
+              print("DBG",await pg.evaluate("JSON.stringify({ids:Object.keys(window.__LV.ids),rows:Object.keys(window.__LVR).map(k=>k+':'+window.__LVR[k].map(r=>r.a+'-'+r.h+' '+(r.st||'F')).join(',')),upd:VaultApp.D.updatedAt})"))
               print("ESPN REQS",len(reqs),sorted(set(u.split('?')[0].split('/sports/')[1] for u in reqs)))
               await pg.goto("http://localhost:8000/#booth"); await asyncio.sleep(4)
               tabs=await pg.eval_on_selector_all(".bth-chip","a=>a.map(x=>x.getAttribute('data-bp'))")
