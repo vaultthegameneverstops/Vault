@@ -4,38 +4,46 @@ jobs:
   d:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v4
-        with: { node-version: "20" }
       - shell: bash {0}
         run: |
-          mkdir k && cd k && npm init -y >/dev/null && npm i kokoro-js@latest 2>&1 | tail -5; npm ls kokoro-js || true
-          cat > t.mjs <<'JS'
-          import { KokoroTTS } from "kokoro-js";
-          const t0=Date.now();
-          const tts = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", { dtype: "q8", device: "cpu" });
-          console.log("LOAD ms", Date.now()-t0);
-          console.log("VOICES", JSON.stringify(Object.keys(tts.voices||{})));
-          const t1=Date.now();
-          const a = await tts.generate("Mahomes drops back, fires deep down the left side, caught by Kelce! First down Chiefs!", { voice: "am_michael" });
-          console.log("GEN ms", Date.now()-t1, "sr", a.sampling_rate, "len", a.audio.length, "proto", Object.getOwnPropertyNames(Object.getPrototypeOf(a)).join(","));
-          JS
-          node t.mjs 2>&1 | tail -8
-          du -sh ~/.cache/huggingface 2>/dev/null; find / -name "model_quantized.onnx" -path "*Kokoro*" 2>/dev/null | xargs -r ls -la; find / -name "*.onnx" -size +10M 2>/dev/null | grep -i kokoro | xargs -r ls -la
-          grep -o '"version": "[^"]*"' node_modules/kokoro-js/package.json
-          grep -n "dtype\|q4\|q8\|fp16\|webgpu" node_modules/kokoro-js/README.md | head -20
-      - run: |
+          pip install -q playwright 2>&1 | tail -2
+          mkdir -p site && cat > site/t.html <<'HTML'
+          <!doctype html><html><body><pre id=o>start</pre><script type="module">
+          const o=document.getElementById('o');const log=(...a)=>{o.textContent+="\n"+a.join(" ");console.log(a.join(" "))};
+          try{
+            const t0=performance.now();
+            const m=await import("https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm");
+            log("IMPORT ok keys", Object.keys(m).join(","), Math.round(performance.now()-t0));
+            const t1=performance.now();
+            const tts=await m.KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX",{dtype:"q8",device:"wasm"});
+            log("LOAD ms",Math.round(performance.now()-t1));
+            log("VOICES",JSON.stringify(Object.keys(tts.voices||{})));
+            for (const v of ["am_michael","af_heart","am_onyx","bm_george"]) {
+              const t2=performance.now();
+              const a=await tts.generate("Mahomes drops back, fires deep down the left side, caught by Kelce! First down Chiefs!",{voice:v});
+              log("GEN",v,Math.round(performance.now()-t2),"ms sr",a.sampling_rate,"secs",(a.audio.length/a.sampling_rate).toFixed(2),"blob",typeof a.toBlob);
+            }
+            log("DONE");
+          }catch(e){log("ERR",e&&e.stack||e)}
+          </script></body></html>
+          HTML
+          cd site && (python3 -m http.server 8000 >/dev/null 2>&1 &) && sleep 1 && cd ..
           python3 - <<'PY'
-          import json,urllib.request
-          def g(u): return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={"User-Agent":"Mozilla/5.0"})))
-          B="https://site.api.espn.com/apis/site/v2/sports/football/"
-          for path in ["nfl","college-football"]:
-            sb=g(B+path+"/scoreboard")
-            ev=[e for e in sb["events"] if e["status"]["type"]["state"]!="pre"]
-            if not ev: continue
-            s=g(B+path+"/summary?event="+ev[0]["id"])
-            dr=s["drives"]; pl=[p for d in dr.get("previous",[]) for p in d["plays"]]
-            types={}
-            for p in pl: types.setdefault(p["type"]["text"],p)
-            for k,p in types.items(): print("T",path,"|",k,"|",p.get("text","")[:170],"|",(p.get("start") or {}).get("downDistanceText"),"|",p.get("statYardage"))
-            d0=dr["previous"][-1]; print("DRIVE",json.dumps({k:d0.get(k) for k in ("description","displayResult","shortDisplayResult","yards","offensivePlays","isScore")}))
+          import asyncio
+          from playwright.async_api import async_playwright
+          async def main():
+            async with async_playwright() as p:
+              b=await p.chromium.launch(channel="chrome")
+              pg=await b.new_page()
+              pg.on("console",lambda m: print("C",m.text[:300]))
+              await pg.goto("http://localhost:8000/t.html")
+              for i in range(60):
+                await asyncio.sleep(5)
+                t=await pg.inner_text("#o")
+                if "DONE" in t or "ERR" in t: break
+              print(t)
+              rs=await pg.evaluate("performance.getEntriesByType('resource').filter(r=>r.transferSize>500000).map(r=>r.name.split('/').slice(-3).join('/')+' '+Math.round(r.transferSize/1e6)+'MB')")
+              print("BIG",rs)
+              await b.close()
+          asyncio.run(main())
           PY
