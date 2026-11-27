@@ -561,3 +561,24 @@ html body .nav a.bth-nav i,#drawerNav a.bth-nav i{width:7px;height:7px;border-ra
 .wq b{color:#fff;font:800 14px var(--sn-bd,system-ui)}
 .wq p{margin:4px 0 0;color:#cfd6e0;font:500 14px/1.45 var(--sn-bd,system-ui)}
 .wcbox{margin:18px 0}.wcbox-h{font:900 italic 22px var(--sn-hd,"Arial Black",sans-serif);text-transform:uppercase;color:#fff;margin:0 0 10px}
+
+/* ---------- realistic floors + octagon (2026-11) ---------- */
+.ar-world.oct .ar-floor{box-shadow:0 0 90px 30px rgba(0,0,0,.6)}
+.ar-fence{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none}
+.ar-fn{position:absolute;left:0;top:-54px;height:54px;box-sizing:border-box;transform-origin:50% 100%;
+ background:repeating-linear-gradient(45deg,rgba(20,22,26,.9) 0 1.1px,transparent 1.1px 6px),repeating-linear-gradient(-45deg,rgba(20,22,26,.9) 0 1.1px,transparent 1.1px 6px),linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.10));
+ border-top:6px solid #0d0e11;border-bottom:8px solid #16181c;border-left:2px solid #0d0e11;border-right:2px solid #0d0e11;backface-visibility:visible}
+.ar-floor svg.fl-oc{background:#0b0c0f}
+.jb-mma .jb-t strong{font-size:.62em;letter-spacing:.02em}
+.ar-chip.mma em{color:#f87171}
+@media (prefers-reduced-motion:reduce){.ar-fn{transition:none}}
+.ar-row{grid-template-columns:10px auto minmax(0,1fr) auto}
+.ar-row:not(:has(.tlogo)){grid-template-columns:10px minmax(0,1fr) auto}
+.ar-row .tlogo.lg{width:44px;height:44px;object-fit:contain}
+.ar-row h3{text-align:left}
+.ar-world.oct .ar-floor{transform:scale(1.45)}
+.ar-world.oct .ar-fence{transform:scale3d(1.45,1.45,1.2)}
+.ar-cardl{list-style:none;margin:0;padding:0}
+.ar-cardl li{padding:7px 0;border-bottom:1px solid #1E2B45;font:500 13px/1.35 var(--sn-bd,system-ui);color:#cfd6e0}
+.ar-cardl li:last-child{border-bottom:0}
+.ar-cardl b{color:#fff;font-weight:700}

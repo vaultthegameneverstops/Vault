@@ -103,9 +103,10 @@ function tcase(t){return String(t||"").toLowerCase().replace(/(^|[\s'’-])([a-z
 function Art(s,cls){
   var nm=s.name||NAMES[s.id],pal=s.pal||PAL[s.id]||PAL["_"+s.sport]||["#1a1c20","#2f6fed","#2f6fed","#eeeeee"],ts=TEAMS?storyTeams(s):[];
   var tc=s.sport==="mma"?"#5a1014":(ts.length&&ts[0].c?ts[0].c:pal[1]);
-  var mark=TeamArt(s)||'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>';
+  var ta=TeamArt(s),tc2=ts.length>1&&ts[1].c?ts[1].c:"";if(ta)cls=(cls||"")+" has-lg"+(tc2?" two":"");
+  var mark=ta||'<svg class="ill" aria-hidden="true" viewBox="0 0 240 200" preserveAspectRatio="xMidYMid meet">'+ILL[MOTIF[s.id]||DEF[s.sport]]+'</svg>';
   var who=nm?tcase(nm.join(" ")):"";
-  return '<div class="art ed s-'+s.sport+' '+(cls||"")+'" style="--tc:'+esc(tc)+'"><div class="ed-mark">'+mark+'</div>'+(who?'<span class="ed-who">'+esc(who)+'</span>':"")+'<span class="sp">'+SPLAB[s.sport]+'</span></div>';
+  return '<div class="art ed s-'+s.sport+' '+(cls||"")+'" style="--tc:'+esc(tc)+(tc2?';--tc2:'+esc(tc2):"")+'"><div class="ed-mark">'+mark+'</div>'+(who?'<span class="ed-who">'+esc(who)+'</span>':"")+'<span class="sp">'+SPLAB[s.sport]+'</span></div>';
 }
 function Label(s){
   var l=s.label,c="";

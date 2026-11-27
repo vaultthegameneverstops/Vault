@@ -7,7 +7,7 @@ body{background:var(--bg)!important;color:var(--tx);font:14px/1.5 var(--bd)!impo
 
 /* ---------- no glow,no gradients,no fake depth (the Booth scene keeps its own art) ---------- */
 body *:not(.bth-scene *):not(.bth-scene){text-shadow:none!important;box-shadow:none!important;filter:none!important;backdrop-filter:none!important}
-*:not(.bth-scene *):not(.bth-scene):not(.art):not(.stad *):not(.th *):not(.gfield *){background-image:none!important}
+*:not(.bth-scene *):not(.bth-scene):not(.art):not(.stad *):not(.th *):not(.gfield *):not(.arena *){background-image:none!important}
 *::before,*::after{text-shadow:none!important;box-shadow:none!important}
 /* motion: short colour/opacity transitions only */
 body *:not(.bth-scene *):not(.dot):not(.onair-dot){animation:none!important}
@@ -261,3 +261,12 @@ body{padding-bottom:0!important}
 /* first-visit storage notice: solid compact bar */
 .lg-ban{background:#1b1d21!important;border:1px solid var(--line)!important;border-radius:8px!important;color:var(--tx)!important;font-size:13px!important;padding:10px 12px!important}
 .lg-ban a{color:var(--red2)!important}
+
+/* story art with team logos: neutral light panel so every logo reads (dark navy, black, white-trimmed); team colors move to a bottom stripe */
+.art.ed.has-lg{background:linear-gradient(180deg,#f6f7f9 0%,#e6e9ee 100%)!important;box-shadow:inset 0 -5px 0 0 var(--tc,#3b7bf0)}
+.art.ed.has-lg.two{box-shadow:none}
+.art.ed.has-lg.two::after{content:"";display:block!important;position:absolute;left:0;right:0;bottom:0;height:5px;background:linear-gradient(90deg,var(--tc) 0 50%,var(--tc2,var(--tc)) 50% 100%)!important}
+.art.ed.has-lg .tart img{filter:drop-shadow(0 3px 6px rgba(15,23,42,.18))!important}
+.art.ed.has-lg .tvs{color:#5b6472!important}
+.art.ed.has-lg .ed-who{background:rgba(17,20,26,.72)!important}
+.art.ed.has-lg.s-mma{background:linear-gradient(180deg,#f6f7f9 0%,#e6e9ee 100%)!important}
