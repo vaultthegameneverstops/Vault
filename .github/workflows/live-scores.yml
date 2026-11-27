@@ -15,6 +15,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  actions: write
 
 concurrency:
   group: vault-live
@@ -84,3 +85,18 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # GitHub's cron often runs late or skips. Each scheduled/manual run waits ~4 minutes,
+  # then queues the next one, so scores keep flowing about every 5 minutes.
+  next:
+    needs: [update, deploy]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait, then queue the next update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 230
+          gh workflow run live-scores.yml -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"

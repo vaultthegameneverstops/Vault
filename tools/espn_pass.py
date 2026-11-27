@@ -302,13 +302,15 @@ def hoops_period(p, key):
 
 P_MAKE = re.compile(r"^(.+?)\s+makes\s+(?:(\d+)-foot\s+)?(.*?)(?:\s*\((.+?) assists?\))?\s*$")
 P_BLK = re.compile(r"^(.+?)\s+blocks\s+(.+?)\s*'s")
+P_BLK2 = re.compile(r"^(.+?)\s+Block\.?$")
+P_MISS = re.compile(r"^(.+?)\s+misses\b")
 
 
 def hoops_extras(path, ev_id, key, a_id, h_id, a_ab, h_ab):
     """Shot chart (last 90 field-goal tries) and highlight plays (made threes, dunks, blocks)."""
     s = get(BASE + path + "/summary?event=" + ev_id)
     ab = {a_id: a_ab, h_id: h_ab}
-    shots, hl = [], []
+    shots, hl, miss = [], [], None
     for p in s.get("plays") or []:
         tid = str((p.get("team") or {}).get("id"))
         if tid not in ab:
@@ -320,6 +322,10 @@ def hoops_extras(path, ev_id, key, a_id, h_id, a_ab, h_ab):
         side = "a" if tid == a_id else "h"
         made = bool(p.get("scoringPlay"))
         val = num(p.get("scoreValue"))
+        mm = P_MISS.search(txt) if p.get("shootingPlay") and not p.get("scoringPlay") else None
+        prev_miss = miss
+        if mm:
+            miss = (mm.group(1).strip(), x, y, tid)
         if p.get("shootingPlay") and "FreeThrow" not in ty and "free throw" not in txt.lower() and x is not None and y is not None and 0 <= num(x, -1) <= 50 and 0 <= num(y, -1) <= 47:
             shots.append([num(x), num(y), 1 if made else 0, side, val])
         kind = None
@@ -339,6 +345,16 @@ def hoops_extras(path, ev_id, key, a_id, h_id, a_ab, h_ab):
             m = P_BLK.search(txt)
             if m:
                 h["by"], h["vs"] = m.group(1).strip(), m.group(2).strip()
+            else:
+                m = P_BLK2.search(txt)
+                if m:
+                    h["by"] = m.group(1).strip()
+            # the blocked shot is the miss just before (or right after) the block
+            mv = miss if (miss and miss[3] != tid) else prev_miss
+            if mv and mv[3] != tid:
+                h.setdefault("vs", mv[0])
+                if mv[1] is not None and (h.get("x"), h.get("y")) in ((25, 0), (None, None)):
+                    h["x"], h["y"] = num(mv[1]), num(mv[2])
         else:
             m = P_MAKE.search(txt)
             if m:
