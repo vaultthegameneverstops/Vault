@@ -516,3 +516,19 @@ html body .nav a.bth-nav i,#drawerNav a.bth-nav i{width:7px;height:7px;border-ra
 .fc-fl{width:28px;height:19px;object-fit:cover;border-radius:2px;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.15)}
 .tlogo.jbw{position:absolute;top:8px;left:8px;width:30px;height:30px;margin:0}
 .jb-t span.jb-ab{display:block}
+
+/* booth: per-game crews, tabs, scene */
+.bo-av{border-radius:50%;overflow:hidden}
+.bth{background:radial-gradient(1200px 500px at 15% -10%,color-mix(in srgb,var(--b1,#2563eb) 30%,transparent),transparent 60%),radial-gradient(1200px 500px at 85% -10%,color-mix(in srgb,var(--b2,#60a5fa) 30%,transparent),transparent 60%),linear-gradient(180deg,#060a14,#03050a)!important;transition:background .6s}
+.bth-chip{display:grid;gap:2px;padding:8px 16px!important;min-height:64px!important}
+.bth-chip em{display:flex;align-items:center;gap:6px}
+.bth-chip em i{width:7px;height:7px;border-radius:50%;background:#ef4444;animation:hlPulse 1.6s infinite}
+.bth-chip .bt-sc{display:flex;align-items:center;gap:4px;font-weight:800}
+.bth-chip .bt-sc s{text-decoration:none;color:#64748B;margin:0 4px}
+.bth-chip small{font:600 11px var(--sn-bd,system-ui);color:#93c5fd}
+.bth-chip[aria-pressed=true] small{color:#fff}
+.bth-mu{margin:-4px 0 12px;color:#9FB4D0;font-weight:600}
+.bth-scene .flash{opacity:0;animation:camflash 6s infinite}
+@keyframes camflash{0%,96%,100%{opacity:0}97%{opacity:1}}
+.ann-mini .ann-b,.ann-mini .eyes{animation:none}
+@media (prefers-reduced-motion:reduce){.bth-scene .flash{animation:none}}

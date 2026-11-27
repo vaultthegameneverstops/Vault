@@ -71,13 +71,18 @@ function flapTo(el,oldV,newV){
 /* ---------- plays (plays.json, written by the live loop) ---------- */
 var PL=null,plSig="",plSeen={},plBoot=Date.now(),lastBurst={};
 var KIND={three:"Three",dunk:"Dunk",block:"Block",td:"Touchdown",fg:"Field goal",xp:"Extra point","2pt":"2-pt try",sf:"Safety",to:"Turnover",big:"Big play",run:"Scoring run",score:"Score",half:"Halftime",final:"Final"};
+/* order plays by game time (period, then clock counting down); items without a game time keep their place */
+function tkey(t){t=String(t||"");var m=/^(Q|H|OT)(\d*)\s+(\d+):(\d+)/.exec(t),per;
+ if(m){per=m[1]==="Q"?+m[2]:m[1]==="H"?+m[2]:(m[1]==="OT"?4+(+m[2]||1):0);return per*10000+(3600-(+m[3]*60+ +m[4]))}
+ if(/^Half/i.test(t))return 2*10000+3599;if(/^Final/i.test(t))return 99*10000;return null}
+function plSort(l){var last=0;l.forEach(function(x,i){var k=tkey(x.t);if(k==null)k=last;else last=k;x._o=k*1000+i});l.sort(function(a,b){return a._o-b._o});return l}
 function plays(id){return PL&&PL.games&&PL.games[id]?PL.games[id].plays||[]:[]}
 function plRow(g,x,o){var c=x.tm?tcol(g.lg,x.tm):"#3a443f",h=x.hl;o=o||{};
  var fd=h&&o.fd?(football(g)?'<div class="pl-fd">'+miniField(g,h,!!o.anim)+'</div>':hoops(g)?'<div class="pl-fd">'+miniCourt(g,h,!!o.anim)+'</div>':""):"";
  return '<li class="pl'+(x.big?" big":"")+(h?" hl":"")+' k-'+esc(x.k)+'"><span class="pl-t">'+esc(x.t||"")+'</span><span class="pl-k" style="--tc:'+c+'">'+esc(KIND[x.k]||"Play")+(x.tm?" · "+esc(x.tm):"")+'</span>'+(h?'<span class="pl-hl">'+esc(hlTitle(h))+' <em>'+esc(hlSub(h))+'</em></span>':"")+(h&&String(x.key).indexOf("hl|")===0?"":'<span class="pl-x">'+esc(x.x)+'</span>')+fd+'</li>'}
 function loadPlays(){
  return fetch("plays.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
-  var sig=JSON.stringify(d.games||{});if(sig===plSig)return;var first=!plSig;plSig=sig;PL=d;syncMeta();
+  var sig=JSON.stringify(d.games||{});if(sig===plSig)return;var first=!plSig;plSig=sig;PL=d;Object.keys(d.games||{}).forEach(function(id){plSort(d.games[id].plays||[])});syncMeta();
   Object.keys(d.games||{}).forEach(function(id){var e=d.games[id];(e.plays||[]).forEach(function(x){var k=id+"|"+x.key;if(plSeen[k])return;plSeen[k]=1;if(!first&&Date.now()-plBoot>8000&&x.big)bigPlay(id,e,x)})});
   render(false);gamePage();booth();bottomLine();bpRefresh();if((location.hash||"")==="#highlights")hlFill();
  }).catch(function(){})}
@@ -441,8 +446,54 @@ function thPos(){var ring=$("#thRing");if(!ring)return;var n=thN(),l=thList(),R=
  var g=l[k];$("#thCap").textContent=g?(nm(g,"a")+" at "+nm(g,"h")+" · "+(isLive(g)?"Live, "+clock(g):"Final")+" · "+(k+1)+" of "+n+". Tap the front screen for the full game."):"No games right now."}
 
 /* ---------- VAULT Booth (virtual announcers; every fact comes from the tracked plays) ---------- */
-var CREW={rex:{n:"Rex Calloway",r:"Play-by-play",i:"RC",c:"#2563EB"},ice:{n:"Dante “Ice” Whitfield",r:"Analyst",i:"DW",c:"#60A5FA"}};
-function avatar(k){var p=CREW[k];return '<svg class="bo-av" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="23" fill="#0B1324" stroke="'+p.c+'" stroke-width="2"/><path d="M10 40c3-8 8-11 14-11s11 3 14 11" fill="'+p.c+'" opacity=".35"/><circle cx="24" cy="19" r="8" fill="'+p.c+'" opacity=".55"/><path d="M13 19a11 11 0 0 1 22 0" fill="none" stroke="#DCE6F5" stroke-width="2.4"/><rect x="10" y="17" width="5" height="8" rx="2" fill="#DCE6F5"/><rect x="33" y="17" width="5" height="8" rx="2" fill="#DCE6F5"/><path d="M35 24c0 5-4 7-8 7" fill="none" stroke="#DCE6F5" stroke-width="1.6"/><text x="24" y="45.5" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="7" font-weight="900" fill="#fff">'+p.i+'</text></svg>'}
+/* ---------- Broadcast crews: every game gets its own two-person booth (fictional announcers) ---------- */
+var H_SHORT='<path d="M-55 372C-62 300-16 290 4 296C40 296 62 318 55 372C50 344 30 330 6 332C-18 333-40 342-55 372Z" fill="$"/>',
+ H_BUZZ='<path d="M-53 366C-56 312-24 300 0 300C26 300 56 312 53 366C44 340 26 328 0 328C-26 328-44 340-53 366Z" fill="$"/>',
+ H_BALD='<path d="M-53 380C-56 360-52 350-48 346L-44 372ZM53 380C56 360 52 350 48 346L44 372Z" fill="$"/>',
+ H_CURLY='<g fill="$"><circle cx="-38" cy="330" r="20"/><circle cx="-12" cy="314" r="22"/><circle cx="16" cy="314" r="22"/><circle cx="40" cy="332" r="20"/><circle cx="-50" cy="356" r="13"/><circle cx="50" cy="356" r="13"/></g>',
+ H_LONG='<path d="M-58 470C-74 400-70 300 0 296C70 300 74 400 58 470L44 470C52 420 50 360 40 346C20 336-20 336-40 346C-50 360-52 420-44 470Z" fill="$"/><path d="M-50 360C-40 316 40 316 50 360C30 340-30 340-50 360Z" fill="$"/>',
+ H_BUN='<circle cx="0" cy="292" r="20" fill="$"/><path d="M-54 372C-60 304-20 296 0 298C20 296 60 304 54 372C46 340 24 328 0 328C-24 328-46 340-54 372Z" fill="$"/>',
+ H_SIDE='<path d="M-55 368C-60 306-20 294 8 298C42 300 60 322 54 368C48 336 34 324 -6 326C-30 328-46 340-55 368Z" fill="$"/><path d="M-6 300L-14 330" stroke="#0000" />';
+function look(o){var d={skin:"#E9B996",skin2:"#D49E7B",jacket:"#14213D",lapel:"#0E1730",shirt:"#F1F5FB",tie:"#2563EB",brow:"#3B2A20",accent:"#2563EB",hairC:"#3B2A20",hs:H_SHORT,beard:null,glasses:false,f:false};for(var k in o)d[k]=o[k];d.hair=d.hs.split("$").join(d.hairC);return d}
+var CREWS=[
+ {rex:{n:"Rex Calloway",f:"Rex",i:"RC",c:"#2563EB",lk:look({}),v:{g:"m",p:1.0,r:1.05}},
+  ice:{n:"Dante “Ice” Whitfield",f:"Ice",i:"DW",c:"#60A5FA",lk:look({skin:"#8D5A3B",skin2:"#7A4B30",jacket:"#3E7BD6",lapel:"#2F63B5",shirt:"#0B0F19",tie:null,brow:"#1A0F0A",accent:"#60A5FA",beard:"#1F140E",hairC:"#1A120D",hs:H_BUZZ}),v:{g:"m",p:.82,r:.97}}},
+ {rex:{n:"Marcus Bell",f:"Marcus",i:"MB",c:"#f59e0b",lk:look({skin:"#6B4226",skin2:"#5A3720",jacket:"#2b2b2b",lapel:"#1c1c1c",tie:"#f59e0b",hairC:"#120c08",hs:H_BALD,beard:"#140d09",glasses:true,brow:"#120c08",accent:"#f59e0b"}),v:{g:"m",p:.9,r:1.08}},
+  ice:{n:"Tony “Coach” Reyes",f:"Coach",i:"TR",c:"#fbbf24",lk:look({skin:"#C98E64",skin2:"#B07A52",jacket:"#5b1d1d",lapel:"#451515",tie:"#d4d4d4",hairC:"#9ca3af",hs:H_SIDE,brow:"#6b7280",accent:"#fbbf24"}),v:{g:"m",p:.75,r:.92}}},
+ {rex:{n:"Lena Ortiz",f:"Lena",i:"LO",c:"#ec4899",lk:look({skin:"#D9A27C",skin2:"#C58C66",jacket:"#1e1b4b",lapel:"#151238",shirt:"#f5e9ef",tie:null,hairC:"#2a160d",hs:H_LONG,brow:"#2a160d",accent:"#ec4899",f:true}),v:{g:"f",p:1.1,r:1.06}},
+  ice:{n:"“Big” Earl Jackson",f:"Earl",i:"EJ",c:"#f472b6",lk:look({skin:"#5C3A24",skin2:"#4C2F1D",jacket:"#3f3f46",lapel:"#27272a",tie:"#be185d",hairC:"#0f0a07",hs:H_BUZZ,beard:"#0f0a07",brow:"#0f0a07",accent:"#f472b6"}),v:{g:"m",p:.7,r:.9}}},
+ {rex:{n:"Jim Halvorsen",f:"Jim",i:"JH",c:"#22c55e",lk:look({skin:"#F0C4A4",skin2:"#DCAA88",jacket:"#14532d",lapel:"#0f3d21",tie:"#facc15",hairC:"#d6d3d1",hs:H_SIDE,glasses:true,brow:"#a8a29e",accent:"#22c55e"}),v:{g:"m",p:.95,r:1.0}},
+  ice:{n:"Keisha Monroe",f:"Keisha",i:"KM",c:"#4ade80",lk:look({skin:"#7B4B2E",skin2:"#683E25",jacket:"#f5f5f4",lapel:"#e7e5e4",shirt:"#14532d",tie:null,hairC:"#140c07",hs:H_CURLY,brow:"#140c07",accent:"#4ade80",f:true}),v:{g:"f",p:1.0,r:1.0}}},
+ {rex:{n:"Sam “Sparky” Delgado",f:"Sparky",i:"SD",c:"#ef4444",lk:look({skin:"#C68A5E",skin2:"#B1774E",jacket:"#7f1d1d",lapel:"#5c1515",tie:"#fafafa",hairC:"#1c1917",hs:H_SHORT,brow:"#1c1917",accent:"#ef4444"}),v:{g:"m",p:1.15,r:1.14}},
+  ice:{n:"Ray Booker",f:"Ray",i:"RB",c:"#f87171",lk:look({skin:"#8A5A3C",skin2:"#774C31",jacket:"#0c0a09",lapel:"#000",tie:"#ef4444",hairC:"#57534e",hs:H_BUZZ,beard:"#78716c",glasses:true,brow:"#57534e",accent:"#f87171"}),v:{g:"m",p:.8,r:.94}}},
+ {rex:{n:"Nina Park",f:"Nina",i:"NP",c:"#a855f7",lk:look({skin:"#EBC6A3",skin2:"#D9B08C",jacket:"#3b0764",lapel:"#2e0550",shirt:"#f3e8ff",tie:null,hairC:"#0b0b0b",hs:H_BUN,brow:"#0b0b0b",accent:"#a855f7",f:true}),v:{g:"f",p:1.15,r:1.08}},
+  ice:{n:"Doug “Tank” Brennan",f:"Tank",i:"DB",c:"#c084fc",lk:look({skin:"#E3A985",skin2:"#CF946F",jacket:"#1f2937",lapel:"#111827",tie:"#7c3aed",hairC:"#b45309",hs:H_SHORT,beard:"#b45309",brow:"#92400e",accent:"#c084fc"}),v:{g:"m",p:.68,r:.9}}},
+ {rex:{n:"Cole Whitaker",f:"Cole",i:"CW",c:"#06b6d4",lk:look({skin:"#F2C9A8",skin2:"#DEB18E",jacket:"#0c4a6e",lapel:"#083344",tie:"#e2e8f0",hairC:"#a16207",hs:H_SHORT,brow:"#854d0e",accent:"#06b6d4"}),v:{g:"m",p:1.05,r:1.1}},
+  ice:{n:"Andre Simms",f:"Dre",i:"AS",c:"#22d3ee",lk:look({skin:"#4A2E1C",skin2:"#3D2516",jacket:"#e2e8f0",lapel:"#cbd5e1",shirt:"#0c4a6e",tie:"#0e7490",hairC:"#0a0705",hs:H_CURLY,beard:"#0a0705",brow:"#0a0705",accent:"#22d3ee"}),v:{g:"m",p:.85,r:1.0}}},
+ {rex:{n:"Priya Desai",f:"Priya",i:"PD",c:"#f97316",lk:look({skin:"#B8805A",skin2:"#A36F4C",jacket:"#431407",lapel:"#2f0e05",shirt:"#fff7ed",tie:null,hairC:"#0c0806",hs:H_LONG,brow:"#0c0806",accent:"#f97316",f:true}),v:{g:"f",p:1.05,r:1.04}},
+  ice:{n:"Mike Kowalski",f:"Kowalski",i:"MK",c:"#fb923c",lk:look({skin:"#EDBB98",skin2:"#D9A47F",jacket:"#292524",lapel:"#1c1917",tie:"#ea580c",hairC:"#44403c",hs:H_BALD,beard:"#57534e",glasses:true,brow:"#44403c",accent:"#fb923c"}),v:{g:"m",p:.78,r:.95}}}
+];
+var CREW={rex:Object.assign({r:"Play-by-play"},CREWS[0].rex),ice:Object.assign({r:"Analyst"},CREWS[0].ice)};
+function hsh(s){var h=0;s=String(s);for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h}
+var CREW_ASSIGN={},CREW_N=0;
+/* more games than hand-made crews: build extra fictional crews from name and look pools */
+var FN_M=["Chris","Brett","Gus","Kenny","Troy","Dave","Lou","Jalen","Mateo","Hank","Victor","Owen","Terrence","Wes","Reggie","Paul"],FN_F=["Erin","Tasha","Molly","Gabriela","Joy","Renee","Hannah","Dana","Simone","Kara"],
+ LN=["Abernathy","Castillo","Pryor","McGill","Nakamura","Sutton","Okafor","Lindqvist","Barrett","Fontaine","Hayes","Quinlan","Romero","Whitmore","Dalton","Esposito","Graves","Ibarra","Kincaid","Mercer","Ashford","Beaumont","Caldwell","Donnelly","Eckert","Farrow","Gallagher","Holloway","Iverson","Jett","Kessler","Lockhart","Marlowe","Novak","Osei","Pemberton","Rhodes","Salazar","Thibodeau","Underwood","Valdez","Winslow","Yates","Zimmer"],
+ SK=[["#F0C4A4","#DCAA88"],["#E3A985","#CF946F"],["#C68A5E","#B1774E"],["#8D5A3B","#7A4B30"],["#5C3A24","#4C2F1D"],["#B8805A","#A36F4C"]],
+ HC=["#1c1917","#3B2A20","#a16207","#9ca3af","#0b0b0b","#7c2d12"],JK=["#14213D","#1f2937","#3b0764","#7f1d1d","#0c4a6e","#14532d","#292524","#1e3a8a"],AC=["#2563EB","#ef4444","#22c55e","#f59e0b","#a855f7","#06b6d4","#ec4899","#f97316"];
+var GEN_USED={};
+function genPerson(seed,f){var r=rnd(hsh(seed)%2147483646+1),pk=function(a){return a[Math.floor(r()*a.length)]};var sk=pk(SK),fn,ln,t=0;do{fn=pk(f?FN_F:FN_M);ln=pk(LN);t++}while((GEN_USED[ln]||GEN_USED[fn+ln])&&t<200);GEN_USED[ln]=GEN_USED[fn+ln]=1;var ac=pk(AC),jk=pk(JK);
+ return {n:fn+" "+ln,f:fn,i:fn[0]+ln[0],c:ac,lk:look({skin:sk[0],skin2:sk[1],jacket:jk,lapel:"#0b0f19",tie:f?null:pk(["#e2e8f0",ac,"#0f172a"]),hairC:pk(HC),hs:f?pk([H_LONG,H_BUN,H_CURLY]):pk([H_SHORT,H_BUZZ,H_BALD,H_SIDE,H_CURLY]),beard:!f&&r()<.4?pk(HC):null,glasses:r()<.3,brow:"#1c1917",accent:ac,f:f}),v:{g:f?"f":"m",p:+(f?1+r()*.2:.7+r()*.4).toFixed(2),r:+(.9+r()*.22).toFixed(2)}}}
+function crewIdx(id){
+ if(CREW_ASSIGN[id]!=null)return CREW_ASSIGN[id];
+ var i=CREW_N++;while(i>=CREWS.length){var n=CREWS.length,fem=n%3===1;CREWS.push({rex:genPerson("p"+n,fem),ice:genPerson("c"+n,!fem&&n%4===0)})}
+ return CREW_ASSIGN[id]=i}
+function assignCrews(){var l=bpGames().slice().sort(function(a,b){return (isLive(b)-isLive(a))||pr(a)-pr(b)});l.forEach(function(g){crewIdx(gid(g))})}
+function setCrew(id){if(CREW_ASSIGN[id]==null)assignCrews();var c=CREWS[crewIdx(id)];CREW={rex:Object.assign({r:"Play-by-play"},c.rex),ice:Object.assign({r:"Analyst"},c.ice)};return CREW}
+function crewNames(id){if(CREW_ASSIGN[id]==null)assignCrews();var c=CREWS[crewIdx(id)];return c.rex.n.replace(/ “.*”/,"").split(" ").slice(-1)[0]+" & "+c.ice.n.replace(/ “.*”/,"").split(" ").slice(-1)[0]}
+
+
+function avatar(k){var p=CREW[k];if(p.lk)return '<svg class="bo-av" viewBox="-80 290 160 200" aria-hidden="true"><rect x="-80" y="290" width="160" height="200" fill="#0B1324"/>'+personHead(p.lk)+'<rect x="-79" y="291" width="158" height="198" fill="none" stroke="'+p.c+'" stroke-width="5" rx="80"/></svg>';return '<svg class="bo-av" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="23" fill="#0B1324" stroke="'+p.c+'" stroke-width="2"/><path d="M10 40c3-8 8-11 14-11s11 3 14 11" fill="'+p.c+'" opacity=".35"/><circle cx="24" cy="19" r="8" fill="'+p.c+'" opacity=".55"/><path d="M13 19a11 11 0 0 1 22 0" fill="none" stroke="#DCE6F5" stroke-width="2.4"/><rect x="10" y="17" width="5" height="8" rx="2" fill="#DCE6F5"/><rect x="33" y="17" width="5" height="8" rx="2" fill="#DCE6F5"/><path d="M35 24c0 5-4 7-8 7" fill="none" stroke="#DCE6F5" stroke-width="1.6"/><text x="24" y="45.5" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="7" font-weight="900" fill="#fff">'+p.i+'</text></svg>'}
 var TWO=["Trail Blazers","Red Storm","Blue Devils","Crimson Tide","Golden Bears","Tar Heels","Sun Devils","Horned Frogs","Red Raiders","Demon Deacons","Black Knights","Rainbow Warriors","Fighting Irish","Nittany Lions","Golden Gophers","Yellow Jackets","Blue Demons","Great Danes","River Hawks","Red Wolves","Golden Eagles","Scarlet Knights","Wolf Pack","Fighting Illini","Golden Flashes","Blue Raiders","Mean Green","Green Wave","Red Hawks","Delta Devils"];
 function nick(full){full=String(full||"");for(var i=0;i<TWO.length;i++)if(full.slice(-TWO[i].length)===TWO[i])return TWO[i];var w=full.split(" ");return w[w.length-1]||full}
 function pick(arr,seed){var h=0;seed=String(seed);for(var i=0;i<seed.length;i++)h=(h*33+seed.charCodeAt(i))>>>0;return arr[h%arr.length]}
@@ -457,7 +508,7 @@ function cleanDesc(x){return String(x||"").replace(/\s*TOUCHDOWN\.?/i,"").replac
 function calls(e,x){
  var N=x.tm?nick(teamFull(e,x.tm)):"",S=scoreLine(e,x.sa,x.sh,x.tm),k=x.key||x.x,out=[];
  function R(t,h){out.push({w:"rex",t:t,h:!!h})}function I(t){out.push({w:"ice",t:t})}
- if(x.k==="td"){R(pick(["TOUCHDOWN, "+N+"! ","Into the end zone! ",N+" punch it in! "],k)+cleanDesc(x.x),1);if(S)I(S+pick([". Put that one on the highlight reel.",". That's execution, Rex.",". Big swing on the scoreboard."],k+"i"))}
+ if(x.k==="td"){R(pick(["TOUCHDOWN, "+N+"! ","Into the end zone! ",N+" punch it in! "],k)+cleanDesc(x.x),1);if(S)I(S+pick([". Put that one on the highlight reel.",". That's execution, "+CREW.rex.f+".",". Big swing on the scoreboard."],k+"i"))}
  else if(x.k==="fg"){var m=/^(\S+)\s+(\d+)\s+yard field goal/i.exec(x.x);R("The kick is up... and it's GOOD! "+(m?m[1]+" from "+m[2]+" yards.":cleanDesc(x.x)),1);if(S)I(S+pick([". Points are points.",". Three more on the board.",". You take those every time."],k+"i"))}
  else if(x.k==="xp"){R("Extra point is good."+(S?" "+S+".":""))}
  else if(x.k==="2pt"){R(cleanDesc(x.x),1);if(S)I(S+".")}
@@ -478,12 +529,12 @@ function intro(e,g){
  var lv=/LIVE|HALF/.test(e.st||""),note=g&&g.note?" for "+(/^(the )/i.test(g.note)?"":/game|semifinal|final|bowl|classic/i.test(g.note)?"the ":"")+g.note:"";
  var rec=function(k){var r=g&&g[k+"r"];return r?" ("+r+")":""};
  var st=lv?"We're live, "+String(e.st).replace(/^LIVE\s*/i,"")+" on the clock, and "+scoreLine(e,e.as,e.hs).replace(/^The /,"the ").replace(/^We're/,"we're")+".":"This one is in the books: "+scoreLine(e,e.as,e.hs).replace(/^The /,"the ").replace(/ lead it /," won it ")+".";
- return [{w:"rex",t:"Hello everybody, and welcome in to the VAULT Booth! I'm Rex Calloway"+note+", with the "+e.an+rec("a")+" visiting the "+e.hn+rec("h")+"."},{w:"ice",t:"And I'm Dante “Ice” Whitfield, right alongside you. "+st}]}
+ return [{w:"rex",t:"Hello everybody, and welcome in to the VAULT Booth! I'm "+CREW.rex.n.replace(/ “.*?”/,"")+note+", with the "+e.an+rec("a")+" visiting the "+e.hn+rec("h")+". Alongside me as always, "+CREW.ice.n.replace(/ “.*?”/,"")+"."},{w:"ice",t:"Thanks, "+CREW.rex.f+". "+st+" "+pick(["Should be a fun one.","Lot on the line tonight.","Let's get to it."],e.an+e.hn)}]}
 function lineHTML(l,isNew){var p=CREW[l.w];return '<li class="bo-l'+(l.h?" hype":"")+(isNew?" new":"")+'">'+avatar(l.w)+'<div><div class="bo-who">'+esc(p.n)+'<em>'+esc(l.when||"")+'</em></div><p class="bo-say">'+esc(l.t)+'</p></div></li>'}
 var boSeen={},boAll=false;
 function booth(){
  var h=(location.hash||"").slice(1);if(h.indexOf("game-")!==0)return;var id=h.slice(5),art=$("#view article"),gm=art&&art.querySelector(".gm");if(!gm)return;
- var e=PL&&PL.games&&PL.games[id],g=null;games().forEach(function(x){if(gid(x)===id)g=x});
+ var e=PL&&PL.games&&PL.games[id],g=null;games().forEach(function(x){if(gid(x)===id)g=x});setCrew(id);
  if(!e&&g)e={lg:g.lg,a:g.a,h:g.h,an:nm(g,"a"),hn:nm(g,"h"),as:g.as,hs:g.hs,st:isLive(g)?g.st:"FINAL",plays:[]};
  if(!e)return;
  var box=art.querySelector(".booth");if(!box){box=document.createElement("section");box.className="booth";box.setAttribute("aria-label","The VAULT Booth");gm.insertAdjacentElement("afterend",box);
@@ -496,8 +547,8 @@ function booth(){
   '<div class="bo-crew"><div class="bo-p">'+avatar("rex")+'<div><b>'+esc(CREW.rex.n)+'</b><small>'+CREW.rex.r+'</small></div></div><div class="bo-p">'+avatar("ice")+'<div><b>'+esc(CREW.ice.n)+'</b><small>'+CREW.ice.r+'</small></div></div></div>'+
   '<ol class="bo-lines">'+html+intro(e,g).map(function(l){return lineHTML(l,false)}).join("")+'</ol>'+
   (total>10?'<button type="button" class="bo-more">'+(boAll?"Show latest calls":"Show the full broadcast ("+total+" calls)")+'</button>':"")+
-  '<p class="bo-n">Rex and Dante are VAULT’s virtual booth, not real broadcasters. Their calls are written automatically from the plays VAULT tracks, and every name, yard line and score in them comes from the Sportradar feed.</p>'}
-function latestCall(g){var id=gid(g),e=PL&&PL.games&&PL.games[id];if(!e||!e.plays||!e.plays.length)return "";var x=e.plays[e.plays.length-1],c=calls(e,x)[0];return '<div class="ar-call">'+avatar("rex")+'<p>“'+esc(c.t)+'”<small>Rex Calloway, VAULT Booth'+(x.t?" · "+esc(x.t):"")+'</small></p></div>'}
+  '<p class="bo-n">'+esc(CREW.rex.f)+' and '+esc(CREW.ice.f)+' are VAULT’s virtual booth for this game, not real broadcasters. Every VAULT game gets its own crew. Their calls are written automatically from the plays VAULT tracks; every name, yard line and score comes from ESPN’s public play-by-play.</p>'}
+function latestCall(g){var id=gid(g),e=PL&&PL.games&&PL.games[id];if(!e||!e.plays||!e.plays.length)return "";setCrew(id);var x=e.plays[e.plays.length-1],c=calls(e,x)[0];return '<div class="ar-call">'+avatar("rex")+'<p>“'+esc(c.t)+'”<small>'+esc(CREW.rex.n)+', VAULT Booth'+(x.t?" · "+esc(x.t):"")+'</small></p></div>'}
 
 /* ---------- BottomLine crawl ---------- */
 var blSig="";
@@ -544,7 +595,9 @@ function person(id,x,o){
  s+='<path d="M-30 360q30-14 60 0" fill="none" stroke="'+o.skin2+'" stroke-width="0"/>';
  s+=o.hair;
  if(o.beard)s+='<path d="M-48 388C-46 452 46 452 48 388C38 420 22 430 0 431C-22 430-38 420-48 388Z" fill="'+o.beard+'"/>';
+ if(o.f)s+='<circle cx="-52" cy="404" r="3.5" fill="#fde68a"/><circle cx="52" cy="404" r="3.5" fill="#fde68a"/>';
  s+='<g class="eyes"><ellipse cx="-19" cy="378" rx="5" ry="6.5" fill="#101522"/><ellipse cx="19" cy="378" rx="5" ry="6.5" fill="#101522"/><circle cx="-17" cy="376" r="1.6" fill="#fff"/><circle cx="21" cy="376" r="1.6" fill="#fff"/></g>';
+ if(o.glasses)s+='<g fill="rgba(180,210,255,.18)" stroke="#0f172a" stroke-width="3"><rect x="-34" y="366" width="28" height="22" rx="6"/><rect x="6" y="366" width="28" height="22" rx="6"/><path d="M-6 374h12" fill="none"/></g>';
  s+='<path d="M-30 362q11-7 22-2M8 360q11-5 22 2" fill="none" stroke="'+o.brow+'" stroke-width="4" stroke-linecap="round"/>';
  s+='<path d="M-2 384q-6 14 2 17q5 1 8-1" fill="none" stroke="'+o.skin2+'" stroke-width="3" stroke-linecap="round"/>';
  s+='<g class="mouth"><ellipse cx="0" cy="415" rx="13" ry="4.5" fill="#4a1f24"/><path d="M-9 413h18" stroke="#fff" stroke-width="2" opacity=".8"/></g>';
@@ -553,49 +606,68 @@ function person(id,x,o){
  s+='<rect x="-68" y="378" width="4" height="22" rx="2" fill="'+o.accent+'"/><rect x="64" y="378" width="4" height="22" rx="2" fill="'+o.accent+'"/>';
  s+='<path d="M-60 402Q-52 436-20 424" fill="none" stroke="#1b2333" stroke-width="5" stroke-linecap="round"/><circle cx="-16" cy="423" r="7" fill="#26324a"/><circle class="mic" cx="-16" cy="423" r="3" fill="'+o.accent+'"/></g>';
  return s+'</g></g>'}
-function boothSVG(){
- var r=rnd(7),crowd="",i;
- for(i=0;i<260;i++){var cx=Math.round(r()*1200),cy=Math.round(150+r()*170),c=r()<.5?"#60A5FA":r()<.6?"#DCE6F5":"#2563EB";crowd+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(1+r()*2.2).toFixed(1)+'" fill="'+c+'" opacity="'+(.25+r()*.6).toFixed(2)+'"/>'}
- var yl="";for(i=0;i<=10;i++){var t=i/10,xa=360+t*480,xb=120+t*960;yl+='<line x1="'+xa.toFixed(0)+'" y1="330" x2="'+xb.toFixed(0)+'" y2="470" stroke="#fff" stroke-opacity="'+(i%5?0.35:0.7)+'" stroke-width="'+(i%5?1.2:2.4)+'"/>'}
- var rex=person("annRex",350,{skin:"#E9B996",skin2:"#D49E7B",jacket:"#14213D",lapel:"#0E1730",shirt:"#F1F5FB",tie:"#2563EB",brow:"#3B2A20",accent:"#2563EB",
-  hair:'<path d="M-55 372C-62 300-16 290 4 296C40 296 62 318 55 372C50 344 30 330 6 332C-18 333-40 342-55 372Z" fill="#3B2A20"/><path d="M-20 300C0 288 34 292 46 312C24 302 0 302-20 300Z" fill="#4E3828"/>'});
- var ice=person("annIce",850,{skin:"#8D5A3B",skin2:"#7A4B30",jacket:"#3E7BD6",lapel:"#2F63B5",shirt:"#0B0F19",tie:null,brow:"#1A0F0A",accent:"#60A5FA",beard:"#1F140E",
-  hair:'<path d="M-53 366C-56 312-24 300 0 300C26 300 56 312 53 366C44 340 26 328 0 328C-26 328-44 340-53 366Z" fill="#1A120D"/>'});
+function personHead(o){return person("",0,o).replace('class="ann" id=""','class="ann-mini"')}
+function boothSVG(g){
+ g=g||{lg:"NFL",a:"",h:""};var fb=football(g),hp=hoops(g),r=rnd(hsh(gid(g)||"x")%100000+7),i,ca=tcol(g.lg,g.a),ch=tcol(g.lg,g.h);
+ var la=logoURL(g.lg,g.a,160),lh=logoURL(g.lg,g.h,160),img=function(u,x,y,w){return u?'<image href="'+esc(u)+'" x="'+(x-w/2)+'" y="'+(y-w/2)+'" width="'+w+'" height="'+w+'" preserveAspectRatio="xMidYMid meet"/>':""};
+ var crowd="";for(i=0;i<520;i++){var cx=Math.round(r()*1200),cy=Math.round(70+r()*250),c=r()<.62?ch:r()<.7?ca:r()<.5?"#DCE6F5":"#94a3b8";crowd+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(1.2+r()*2.4).toFixed(1)+'" fill="'+c+'" opacity="'+(.35+r()*.55).toFixed(2)+'"/>'}
+ var flash="";for(i=0;i<14;i++)flash+='<circle class="flash" cx="'+Math.round(r()*1200)+'" cy="'+Math.round(90+r()*200)+'" r="2.6" fill="#fff" style="animation-delay:'+(r()*6).toFixed(2)+'s"/>';
+ var floor="";
+ if(fb){
+  floor+='<path d="M300 320H900L1130 470H70Z" fill="#2c8a46"/>';
+  for(i=0;i<=20;i++){var t=i/20,xa=300+t*600,xb=70+t*1060;floor+='<line x1="'+xa.toFixed(0)+'" y1="320" x2="'+xb.toFixed(0)+'" y2="470" stroke="#fff" stroke-opacity="'+(i%2?0.22:0.55)+'" stroke-width="'+(i%10?1.3:2.6)+'"/>'}
+  floor+='<path d="M300 320H330L101 470H70Z" fill="'+ca+'"/><path d="M870 320H900L1130 470H1099Z" fill="'+ch+'"/>';
+  floor+=img(lh,600,392,64);
+ }else if(hp){
+  floor+='<path d="M330 320H870L1080 470H120Z" fill="#c98f55"/><path d="M330 320H870L1080 470H120Z" fill="none" stroke="#1D4ED8" stroke-width="6"/>';
+  floor+='<path d="M600 320V470" stroke="#fff" stroke-width="2.4"/><ellipse cx="600" cy="392" rx="70" ry="22" fill="none" stroke="#fff" stroke-width="2.4"/>';
+  floor+='<path d="M340 360H420L392 440H250Z" fill="'+ca+'" opacity=".9"/><path d="M860 360H780L808 440H950Z" fill="'+ch+'" opacity=".9"/>';
+  floor+=img(lh,600,392,56);
+ }else floor+='<path d="M300 320H900L1130 470H70Z" fill="#111827"/>';
+ var jb='<g transform="translate(600 96)"><rect x="-150" y="-50" width="300" height="104" rx="6" fill="#0b0f17" stroke="#2A3A5A" stroke-width="3"/><rect x="-142" y="-42" width="140" height="88" fill="'+ca+'" opacity=".55"/><rect x="2" y="-42" width="140" height="88" fill="'+ch+'" opacity=".55"/>'+img(la,-72,-10,46)+img(lh,72,-10,46)+
+  '<text id="jbA" x="-72" y="38" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="22" font-weight="900" fill="#fff">'+esc(g.as!=null?g.as:"")+'</text><text id="jbH" x="72" y="38" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="22" font-weight="900" fill="#fff">'+esc(g.hs!=null?g.hs:"")+'</text><path d="M0 -50V-80" stroke="#2A3A5A" stroke-width="4"/></g>';
+ var lamps='<g class="lamps">'+[90,1110].map(function(x){return '<rect x="'+(x-5)+'" y="30" width="10" height="250" fill="#1E2B45"/><rect x="'+(x-38)+'" y="24" width="76" height="34" rx="4" fill="#DCE6F5"/><circle cx="'+x+'" cy="40" r="130" fill="url(#lamp)"/>'}).join("")+'</g>';
+ var P=CREW.rex.lk,Q=CREW.ice.lk;
+ var rex=person("annRex",350,P),ice=person("annIce",850,Q);
+ var mon=function(x,id,txt){return '<g transform="translate('+x+' 486)"><path d="M-96 0H96L90 52H-90Z" fill="#0B1324" stroke="#2A3A5A" stroke-width="3"/><rect x="-86" y="8" width="172" height="38" rx="3" fill="#050913"/><text id="'+id+'" x="0" y="34" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="17" font-weight="900" fill="#DCE6F5">'+esc(txt)+'</text></g>'};
  return '<svg viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>'+
-  '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050913"/><stop offset=".55" stop-color="#0E1A33"/><stop offset="1" stop-color="#16233B"/></linearGradient>'+
-  '<linearGradient id="fld" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f6b3a"/><stop offset="1" stop-color="#2f8a46"/></linearGradient>'+
-  '<radialGradient id="lamp"><stop offset="0" stop-color="#fffbe8" stop-opacity=".95"/><stop offset=".35" stop-color="#bcd7ff" stop-opacity=".35"/><stop offset="1" stop-color="#60A5FA" stop-opacity="0"/></radialGradient>'+
-  '<radialGradient id="halo"><stop offset="0" stop-color="#60A5FA" stop-opacity=".55"/><stop offset="1" stop-color="#60A5FA" stop-opacity="0"/></radialGradient>'+
+  '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03060d"/><stop offset=".5" stop-color="#0b1426"/><stop offset="1" stop-color="#131f36"/></linearGradient>'+
+  '<radialGradient id="lamp"><stop offset="0" stop-color="#fffbe8" stop-opacity=".95"/><stop offset=".3" stop-color="#cfe2ff" stop-opacity=".35"/><stop offset="1" stop-color="#60A5FA" stop-opacity="0"/></radialGradient>'+
+  '<radialGradient id="halo"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>'+
+  '<radialGradient id="spot" cx=".5" cy="0" r="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>'+
   '<linearGradient id="shade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset=".5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".08"/></linearGradient>'+
-  '<linearGradient id="desk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1E2B45"/><stop offset="1" stop-color="#0B1324"/></linearGradient>'+
-  '<linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset=".4" stop-color="#fff" stop-opacity="0"/><stop offset=".6" stop-color="#93C5FD" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>'+
+  '<linearGradient id="desk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22314f"/><stop offset="1" stop-color="#080e1b"/></linearGradient>'+
+  '<linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".09"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset=".62" stop-color="#93C5FD" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'+
+  '<linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc3ff" stop-opacity="0"/><stop offset="1" stop-color="#9cc3ff" stop-opacity=".12"/></linearGradient></defs>'+
   '<rect width="1200" height="620" fill="url(#sky)"/>'+
-  '<path d="M0 330Q600 250 1200 330V470H0Z" fill="#0B1324"/><g>'+crowd+'</g>'+
-  '<path d="M360 330H840L1080 470H120Z" fill="url(#fld)"/>'+yl+
-  '<g class="lamps"><rect x="70" y="40" width="10" height="230" fill="#1E2B45"/><rect x="1120" y="40" width="10" height="230" fill="#1E2B45"/><circle cx="75" cy="50" r="110" fill="url(#lamp)"/><circle cx="1125" cy="50" r="110" fill="url(#lamp)"/><rect x="40" y="36" width="70" height="30" rx="4" fill="#DCE6F5"/><rect x="1090" y="36" width="70" height="30" rx="4" fill="#DCE6F5"/></g>'+
+  '<path d="M0 60Q600 20 1200 60V330H0Z" fill="#0a1222"/><g>'+crowd+flash+'</g>'+
+  '<path d="M0 300Q600 270 1200 300V330H0Z" fill="'+ch+'" opacity=".55"/><path d="M0 316H1200" stroke="#fff" stroke-opacity=".15"/>'+
+  floor+lamps+jb+'<rect y="0" width="1200" height="470" fill="url(#haze)"/>'+
   '<rect width="1200" height="470" fill="url(#glass)"/>'+
-  '<g fill="#070C17"><rect x="0" y="0" width="1200" height="16"/><rect x="296" y="0" width="12" height="470"/><rect x="592" y="0" width="16" height="470"/><rect x="892" y="0" width="12" height="470"/><rect x="0" y="462" width="1200" height="14"/></g>'+
-  '<g class="onair" transform="translate(0 70)"><rect x="540" y="26" width="120" height="34" rx="17" fill="#2b0a0d"/><circle class="onair-dot" cx="562" cy="43" r="7" fill="#ff3b4a"/><text x="612" y="49" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="15" font-weight="900" fill="#ffd0d4" letter-spacing="2">ON AIR</text></g>'+
+  '<g fill="#060b15"><rect x="0" y="0" width="1200" height="18"/><rect x="296" y="0" width="14" height="470"/><rect x="590" y="0" width="20" height="470"/><rect x="890" y="0" width="14" height="470"/><rect x="0" y="460" width="1200" height="16"/></g>'+
+  '<rect x="0" y="0" width="1200" height="620" fill="url(#spot)"/>'+
+  '<g class="onair" transform="translate(0 196)"><rect x="540" y="26" width="120" height="34" rx="17" fill="#2b0a0d"/><circle class="onair-dot" cx="562" cy="43" r="7" fill="#ff3b4a"/><text x="612" y="49" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="15" font-weight="900" fill="#ffd0d4" letter-spacing="2">ON AIR</text></g>'+
   rex+ice+
-  '<path d="M0 548H1200V620H0Z" fill="url(#desk)"/><path d="M0 540H1200V552H0Z" fill="#2A3A5A"/><path d="M0 552H1200" stroke="#60A5FA" stroke-width="2" opacity=".8"/>'+
-  '<g transform="translate(600 0)"><path d="M-130 470H130L118 544H-118Z" fill="#0B1324" stroke="#2A3A5A" stroke-width="3"/><rect id="bsMon" x="-118" y="480" width="236" height="56" rx="4" fill="#050913"/>'+
-  '<text id="bsScore" x="0" y="517" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="24" font-weight="900" fill="#DCE6F5">VAULT</text></g>'+
-  '<g transform="translate(600 590)"><text text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="26" font-weight="900" letter-spacing="10" fill="#93C5FD" opacity=".9">VAULT BOOTH</text></g>'+
-  '<g transform="translate(470 520)"><rect x="-14" y="0" width="28" height="30" rx="4" fill="#DCE6F5"/><path d="M14 8q12 0 12 9t-12 9" fill="none" stroke="#DCE6F5" stroke-width="4"/><rect x="-14" y="10" width="28" height="6" fill="#2563EB"/></g>'+
+  '<path d="M0 548H1200V620H0Z" fill="url(#desk)"/><path d="M0 538H1200V552H0Z" fill="#2A3A5A"/><path d="M0 552H1200" stroke="'+ch+'" stroke-width="3" opacity=".9"/>'+
+  mon(600,"bsScore",g.a?g.a+" "+g.as+" – "+g.h+" "+g.hs:"VAULT")+mon(180,"bsClock",g.a?clock(g):"")+mon(1020,"bsLg",g.lg||"")+
+  '<g transform="translate(600 592)">'+img(la,-250,-2,34)+img(lh,250,-2,34)+'<text text-anchor="middle" y="8" font-family="Arial Black,Arial,sans-serif" font-size="24" font-weight="900" letter-spacing="10" fill="#93C5FD" opacity=".9">VAULT BOOTH</text></g>'+
+  [470,730].map(function(x,k){var c=k?CREW.ice.c:CREW.rex.c;return '<g transform="translate('+x+' 512)"><rect x="-4" y="0" width="8" height="34" fill="#94a3b8"/><rect x="-16" y="-24" width="32" height="26" rx="5" fill="'+c+'"/><text y="-6" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="11" font-weight="900" fill="#fff">V</text><ellipse cx="0" cy="-30" rx="10" ry="12" fill="#1f2937"/></g>'}).join("")+
   '</svg>'}
 function bpGames(){var l=games().filter(function(g){return isLive(g)||(PL&&PL.games&&PL.games[gid(g)])});return l.length?l:games().slice(0,6)}
 function bpEntry(g){var id=gid(g),e=PL&&PL.games&&PL.games[id];return e||{lg:g.lg,a:g.a,h:g.h,an:nm(g,"a"),hn:nm(g,"h"),as:g.as,hs:g.hs,st:isLive(g)?g.st:"FINAL",plays:[]}}
-function bpLines(g){var e=bpEntry(g),out=intro(e,g).map(function(l,i){l.key="intro|"+i;return l});(e.plays||[]).slice(-6).forEach(function(x){calls(e,x).forEach(function(c,i){c.when=x.t||"";c.key=(x.key||x.x)+"|"+i;out.push(c)})});
+function chat(cs,k){
+ if(cs.length>=2&&cs[0].w==="rex"&&cs[1].w==="ice"){var pre=pick(["",CREW.rex.f+", ","","You know, "+CREW.rex.f+", "],k+"p");if(pre)cs[1].t=pre+cs[1].t.charAt(0).toLowerCase()+cs[1].t.slice(1);
+  var back=pick(["","Couldn't agree more, "+CREW.ice.f+".","","Great point, "+CREW.ice.f+".","Ha! Tell 'em, "+CREW.ice.f+".",""],k+"b");if(back)cs.push({w:"rex",t:back})}
+ else if(cs.length===1&&cs[0].w==="rex"){var q=pick(["","What do you make of that, "+CREW.ice.f+"?",""],k+"q");if(q){cs[0].t+=" "+q;cs.push({w:"ice",t:pick(["It's all about execution right now.","Momentum is a real thing, and you can feel it.","Somebody has to answer, and soon."],k+"a")})}}
+ return cs}
+function bpLines(g){var e=bpEntry(g);setCrew(gid(g));var out=intro(e,g).map(function(l,i){l.key="intro|"+i;return l});(e.plays||[]).slice(-6).forEach(function(x){chat(calls(e,x),x.key||x.x).forEach(function(c,i){c.when=x.t||"";c.key=(x.key||x.x)+"|"+i;out.push(c)})});
  if(!(e.plays||[]).length)out.push({w:"rex",t:"We'll call every scoring play, turnover and big gain right here as it happens. Stay with us.",key:"wait"});return out}
 function buildBooth(){
  BP=document.createElement("section");BP.id="boothPage";BP.className="bth";BP.hidden=true;BP.setAttribute("aria-label","The VAULT Booth");
- BP.innerHTML='<div class="bth-in"><header class="bth-h"><p class="bth-k"><i></i>Live from the VAULT Booth</p><h1 class="bth-t">The Booth.</h1><p class="bth-s">Pull up a chair next to Rex Calloway and Dante “Ice” Whitfield. They call every play VAULT tracks, live.</p></header>'+
-  '<div class="bth-bar"><div class="bth-games" id="bpGames" role="group" aria-label="Pick a game"></div><div class="bth-ctl"><button type="button" class="bth-btn pri" id="bpSound" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="w" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Listen live</span></button><button type="button" class="bth-btn" id="bpPlay" aria-pressed="true">Pause</button></div></div>'+
+ BP.innerHTML='<div class="bth-in"><header class="bth-h"><p class="bth-k"><i></i>Live from the VAULT Booth</p><h1 class="bth-t">The Booth.</h1><p class="bth-s">Every game gets its own booth. Pick a game and pull up a chair: its crew calls every play VAULT tracks, live, and only that game.</p></header>'+
+  '<div class="bth-bar"><div class="bth-games" id="bpGames" role="tablist" aria-label="Booths: pick a game"></div><div class="bth-ctl"><button type="button" class="bth-btn pri" id="bpSound" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="w" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Listen live</span></button><button type="button" class="bth-btn" id="bpPlay" aria-pressed="true">Pause</button></div></div>'+
   '<div class="bth-stage"><div class="bth-scene" id="bpScene">'+boothSVG()+'</div><div class="bth-cap" id="bpCap" aria-live="polite"><div class="bth-who" id="bpWho"></div><p id="bpSay"></p></div></div>'+
-  '<div class="bth-cols"><section class="bth-crew"><h2>Your booth</h2>'+
-  '<div class="bth-card"><div class="bth-av">'+avatar("rex")+'</div><div><b>Rex Calloway</b><small>Play-by-play</small><p>Calls the action the moment it lands: every touchdown, field goal, turnover and run.</p></div></div>'+
-  '<div class="bth-card"><div class="bth-av">'+avatar("ice")+'</div><div><b>Dante “Ice” Whitfield</b><small>Analyst</small><p>Brings the color: what the score means and why the play mattered.</p></div></div>'+
-  '<p class="bth-n">Rex and Dante are VAULT’s virtual announcers, not real people. Their calls are written automatically from plays in the Sportradar feed; every name, yard and score is real. Voices come from your device.</p></section>'+
+  '<div class="bth-cols"><section class="bth-crew" id="bpCrew"></section>'+
   '<section class="bth-tr"><h2>The call so far</h2><ol class="bo-lines" id="bpTr"></ol></section></div></div>';
  var view=$("#view");view.parentNode.insertBefore(BP,view.nextSibling);
  BP.addEventListener("click",function(e){
@@ -604,25 +676,49 @@ function buildBooth(){
   if(e.target.closest("#bpPlay")){bpPlaying=!bpPlaying;$("#bpPlay").textContent=bpPlaying?"Pause":"Play";$("#bpPlay").setAttribute("aria-pressed",bpPlaying);if(!bpPlaying){clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();talk(null)}else bpNext()}});
  if(!("speechSynthesis" in window))$("#bpSound").hidden=true;
 }
+function crewCards(g){var id=gid(g);setCrew(id);
+ return '<h2>Tonight’s booth</h2><p class="bth-mu">'+esc(nm(g,"a"))+' at '+esc(nm(g,"h"))+'</p>'+
+ '<div class="bth-card"><div class="bth-av">'+avatar("rex")+'</div><div><b>'+esc(CREW.rex.n)+'</b><small>Play-by-play</small><p>Calls the action the moment it lands.</p></div></div>'+
+ '<div class="bth-card"><div class="bth-av">'+avatar("ice")+'</div><div><b>'+esc(CREW.ice.n)+'</b><small>Analyst</small><p>Brings the color: what the play means and why it mattered.</p></div></div>'+
+ '<p class="bth-n">'+esc(CREW.rex.f)+' and '+esc(CREW.ice.f)+' are virtual announcers, not real people. Each VAULT game has its own two-person crew. Calls are written automatically from ESPN’s public play-by-play; every name, yard and score is real. Voices come from your device.</p>'}
+var bpScenedFor=null;
+function bpScene(g){var id=gid(g);if(bpScenedFor===id)return;bpScenedFor=id;setCrew(id);var sc=$("#bpScene");if(sc)sc.innerHTML=boothSVG(g);var cr=$("#bpCrew");if(cr)cr.innerHTML=crewCards(g);
+ BP.style.setProperty("--b1",tcol(g.lg,g.a));BP.style.setProperty("--b2",tcol(g.lg,g.h));bpVoices=null}
 function bpCurGame(){var l=bpGames();var g=null;l.forEach(function(x){if(gid(x)===bpSel)g=x});if(!g){g=l.filter(isLive).sort(function(x,y){return pr(x)-pr(y)})[0]||l[0];bpSel=g?gid(g):null}return g}
-function bpChips(){var l=bpGames();$("#bpGames").innerHTML=l.slice(0,10).map(function(g){var id=gid(g);return '<button type="button" class="bth-chip'+(isLive(g)?" live":"")+'" data-bp="'+esc(id)+'" aria-pressed="'+(id===bpSel)+'"><em>'+esc(g.lg)+" · "+esc(clock(g))+'</em>'+esc(g.a)+" "+esc(g.as)+" · "+esc(g.h)+" "+esc(g.hs)+'</button>'}).join("")}
-function bpMon(g){var t=$("#bsScore");if(t&&g)t.textContent=g.a+" "+g.as+"  –  "+g.h+" "+g.hs+"   "+clock(g)}
+function bpChips(){assignCrews();var box=$("#bpGames"),sl=box.scrollLeft,l=bpGames();box.innerHTML=l.slice(0,16).map(function(g){var id=gid(g);return '<button type="button" role="tab" class="bth-chip'+(isLive(g)?" live":"")+'" data-bp="'+esc(id)+'" aria-selected="'+(id===bpSel)+'" aria-pressed="'+(id===bpSel)+'"><em>'+(isLive(g)?'<i></i>':"")+esc(g.lg)+" · "+esc(clock(g))+'</em><span class="bt-sc">'+logoImg(g.lg,g.a,"sm",40)+esc(g.a)+" "+esc(g.as)+'<s>·</s>'+logoImg(g.lg,g.h,"sm",40)+esc(g.h)+" "+esc(g.hs)+'</span><small>🎙 '+esc(crewNames(id))+'</small></button>'}).join("");box.scrollLeft=sl}
+function bpMon(g){if(!g)return;var t=$("#bsScore");if(t)t.textContent=g.a+" "+g.as+" – "+g.h+" "+g.hs;var c=$("#bsClock");if(c)c.textContent=clock(g);var a=$("#jbA"),h=$("#jbH");if(a)a.textContent=g.as;if(h)h.textContent=g.hs}
 function bpTranscript(g){var ls=bpLines(g).slice().reverse();$("#bpTr").innerHTML=ls.map(function(l){return lineHTML(l,false)}).join("")}
-function bpStart(fromStart){var g=bpCurGame();if(!g)return;bpChips();bpMon(g);bpTranscript(g);bpQ=bpLines(g);bpI=fromStart||!bpSeenKeys[bpSel]?0:Math.max(0,bpQ.length-4);bpSeenKeys[bpSel]={};bpQ.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpPlaying)bpNext()}
+function bpStart(fromStart){var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);bpQ=bpLines(g);bpI=fromStart||!bpSeenKeys[bpSel]?0:Math.max(0,bpQ.length-4);bpSeenKeys[bpSel]={};bpQ.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});clearTimeout(bpT);if(window.speechSynthesis)speechSynthesis.cancel();if(bpPlaying)bpNext()}
 function talk(w){["annRex","annIce"].forEach(function(id){var el=document.getElementById(id);if(el){el.classList.toggle("talk",(w==="rex"&&id==="annRex")||(w==="ice"&&id==="annIce"));el.classList.toggle("look",!!w&&!((w==="rex"&&id==="annRex")||(w==="ice"&&id==="annIce")))}})}
+var FEM=/female|samantha|victoria|karen|moira|tessa|fiona|serena|susan|zira|aria|jenny|ava|allison|kate|martha|nicky|catherine|libby|sonia|michelle|emma|olivia|google uk english female|google us english/i,
+ MAL=/male|daniel|alex|fred|guy|matthew|davis|aaron|arthur|tom|eric|ryan|christopher|rishi|lee|oliver|gordon|reed|rocko|ralph|evan|nathan|thomas|george|james|brian|roger|andrew|tony|google uk english male/i;
 function pickVoices(){if(bpVoices)return bpVoices;var v=(window.speechSynthesis&&speechSynthesis.getVoices()||[]).filter(function(x){return /^en/i.test(x.lang)});if(!v.length)return null;
- var pref=function(re){for(var i=0;i<v.length;i++)if(re.test(v[i].name))return v[i];return null};
- var a=pref(/Daniel|Alex|Guy|Fred|Google US English|Matthew|Davis|Aaron/i)||v[0],b=pref(/Arthur|Tom|Eric|Ryan|Google UK English Male|Christopher|Rishi|Lee/i);if(!b||b===a)b=v.filter(function(x){return x!==a})[0]||a;bpVoices={rex:a,ice:b};return bpVoices}
+ var used=[];function choose(p){var pool=v.filter(function(x){return p.v.g==="f"?FEM.test(x.name)&&!/male\b/i.test(x.name.replace(/female/i,"")):MAL.test(x.name)&&!/female/i.test(x.name)});if(!pool.length)pool=v;
+  var free=pool.filter(function(x){return used.indexOf(x)<0});var c=(free.length?free:pool)[hsh(p.n)%(free.length?free:pool).length];used.push(c);return c}
+ bpVoices={rex:choose(CREW.rex),ice:choose(CREW.ice)};return bpVoices}
+var bpBan=0;
+function banter(e,g,n){
+ var A=nick(e.an),H=nick(e.hn),out=[],lv=/LIVE|HALF/.test(e.st||""),k=gid(g)+"|"+n,S=scoreLine(e,e.as,e.hs);
+ var opts=[];
+ opts.push(function(){out.push({w:"rex",t:pick(["Let's reset for everybody just joining us. ","Quick look at the scoreboard. ","Here's where we stand. "],k)+S+(lv?", "+clock(g)+" to go in this one.":".")});out.push({w:"ice",t:pick(["Every possession matters from here, "+CREW.rex.f+".","Whoever wins the next few minutes wins this game.","I like the way both teams are competing."],k+"i")})});
+ if(e.fs&&e.fs.a&&e.fs.h)opts.push(function(){out.push({w:"rex",t:"Total yards so far: "+A+" "+e.fs.a.yds+", "+H+" "+e.fs.h.yds+". "+CREW.ice.f+", what's jumping out at you?"});var ta=e.fs.a.to||0,th=e.fs.h.to||0;out.push({w:"ice",t:ta===th?"Turnovers are even at "+ta+", so this one comes down to who finishes drives.":"The turnover battle. "+(ta<th?A:H)+" are plus-"+Math.abs(ta-th)+" there, and that's the difference-maker."})});
+ if(e.bs&&e.bs.a&&e.bs.h)opts.push(function(){out.push({w:"rex",t:e.bs.a.ld+" leads the "+A+" with "+e.bs.a.pts+". For the "+H+", it's "+e.bs.h.ld+" with "+e.bs.h.pts+"."});out.push({w:"ice",t:pick(["Stars showing up when it matters, "+CREW.rex.f+". That's what you love to see.","If "+e.bs.a.ld.split(" ").slice(-1)[0]+" stays hot, the "+A+" are dangerous.",e.bs.h.ld.split(" ").slice(-1)[0]+" has been the engine for the "+H+" all night."],k+"b")})});
+ if(e.sh&&e.sh.length)opts.push(function(){var m={a:[0,0],h:[0,0]};e.sh.forEach(function(q){m[q[3]][1]++;if(q[2])m[q[3]][0]++});var pa=m.a[1]?Math.round(m.a[0]/m.a[1]*100):0,ph=m.h[1]?Math.round(m.h[0]/m.h[1]*100):0;
+  out.push({w:"rex",t:"Shooting over the recent stretch: "+A+" "+m.a[0]+" of "+m.a[1]+", "+H+" "+m.h[0]+" of "+m.h[1]+"."});out.push({w:"ice",t:pa===ph?"Dead even. This is a make-or-miss game, "+CREW.rex.f+".":(pa>ph?A:H)+" are shooting it better, "+Math.max(pa,ph)+" percent. That's the gap."})});
+ var hls=(e.plays||[]).filter(function(x){return x.hl});
+ if(hls.length)opts.push(function(){var x=hls[hls.length-1];out.push({w:"rex",t:"Let's go back to that one. "+x.x});out.push({w:"ice",t:pick(["Watch it again and you see the whole thing develop. Beautiful.","That's the play people will be talking about tomorrow.","You can't teach that, "+CREW.rex.f+"."],k+"h")})});
+ if(g.ar&&g.hr)opts.push(function(){out.push({w:"rex",t:"The "+A+" came in at "+g.ar+", the "+H+" at "+g.hr+"."});out.push({w:"ice",t:pick(["Records go out the window in a game like this.","You'd never know it from the way they're playing tonight.","Both teams know what's at stake."],k+"r")})});
+ opts[n%opts.length]();out.forEach(function(l,i){l.key="ban|"+n+"|"+i});return out}
 function bpNext(){
  clearTimeout(bpT);if(!BP||BP.hidden||!bpPlaying)return;if(!bpQ.length)return;
- if(bpI>=bpQ.length){bpI=Math.max(0,bpQ.length-6)}
+ if(bpI>=bpQ.length){var g0=bpCurGame();bpBan=(bpBan||0)+1;banter(bpEntry(g0),g0,bpBan).forEach(function(l){bpQ.push(l)})}
  var l=bpQ[bpI++],p=CREW[l.w];$("#bpWho").innerHTML='<b>'+esc(p.n)+'</b><span>'+esc(p.r)+(l.when?" · "+esc(l.when):"")+'</span>';
  var say=$("#bpSay");say.className=l.h?"hype":"";say.textContent="";var txt=l.t,k=0;talk(l.w);
  (function type(){if(k<=txt.length){say.textContent=txt.slice(0,k);k+=2;bpT=setTimeout(type,RM?0:22)}})();
  var done=function(){talk(null);bpT=setTimeout(bpNext,900)};
- if(bpSound&&window.speechSynthesis){var u=new SpeechSynthesisUtterance(txt),vv=pickVoices();if(vv)u.voice=vv[l.w];u.pitch=l.w==="rex"?1.0:0.82;u.rate=l.w==="rex"?(l.h?1.12:1.04):0.98;u.onend=function(){clearTimeout(bpT);done()};u.onerror=function(){clearTimeout(bpT);setTimeout(done,txt.length*55)};speechSynthesis.speak(u)}
+ if(bpSound&&window.speechSynthesis){var u=new SpeechSynthesisUtterance(txt),vv=pickVoices();if(vv)u.voice=vv[l.w];var pv=CREW[l.w].v||{p:1,r:1};u.pitch=pv.p;u.rate=pv.r*(l.h?1.08:1);u.onend=function(){clearTimeout(bpT);done()};u.onerror=function(){clearTimeout(bpT);setTimeout(done,txt.length*55)};speechSynthesis.speak(u)}
  else setTimeout(function(){if(bpPlaying)done()},Math.max(2600,txt.length*58))}
-function bpRefresh(){if(!BP||BP.hidden)return;var g=bpCurGame();if(!g)return;bpChips();bpMon(g);bpTranscript(g);var fresh=bpLines(g).filter(function(l){return !(bpSeenKeys[bpSel]||{})[l.key]});if(fresh.length){fresh.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});bpQ=bpLines(g);bpI=bpQ.length-fresh.length;if(bpPlaying){if(window.speechSynthesis)speechSynthesis.cancel();bpNext()}}}
+function bpRefresh(){if(!BP||BP.hidden)return;var g=bpCurGame();if(!g)return;bpScene(g);setCrew(gid(g));bpChips();bpMon(g);bpTranscript(g);var fresh=bpLines(g).filter(function(l){return !(bpSeenKeys[bpSel]||{})[l.key]});if(fresh.length){fresh.forEach(function(l){bpSeenKeys[bpSel][l.key]=1});bpQ=bpLines(g);bpI=bpQ.length-fresh.length;if(bpPlaying){if(window.speechSynthesis)speechSynthesis.cancel();bpNext()}}}
 function boothRoute(){
  var on=(location.hash||"").slice(1)==="booth";if(!BP)buildBooth();
  var view=$("#view");BP.hidden=!on;view.style.display=on?"none":"";if(AR&&on)AR.hidden=true;
