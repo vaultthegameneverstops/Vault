@@ -743,14 +743,14 @@ function lvRow(ev,lg){var comp=(ev.competitions||[])[0]||{},cs=comp.competitors|
  var st=lvStatus(ev,lg);if(st)r.st=st;
  [["a",a],["h",h]].forEach(function(x){var tm=x[1].team||{};if(tm.logo)r[x[0]+"lg"]=tm.logo;if(tm.color)r[x[0]+"c"]="#"+tm.color;if(tm.alternateColor)r[x[0]+"c2"]="#"+tm.alternateColor;(x[1].records||[]).forEach(function(rc){if(rc.type==="total")r[x[0]+"r"]=rc.summary})});
  LV.ids[(lg+"-"+r.a+"-"+r.h).toLowerCase().replace(/[^a-z0-9-]/g,"")]={id:ev.id,path:LVL.filter(function(z){return z[0]===lg})[0][1],lg:lg};return r}
-var LVROWS={};window.__LV=LV;window.__LVR=LVROWS;
+var LVROWS={};
 function lvPoll(L){if(document.hidden){setTimeout(function(){lvPoll(L)},L[3]);return}
  fetch(ESPN+L[1]+"/scoreboard"+L[2],{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
   var rows=[];(d.events||[]).forEach(function(ev){var r=lvRow(ev,L[0]);if(r)rows.push(r)});LVROWS[L[0]]=rows;
   var all=[];Object.keys(LVROWS).forEach(function(k){all=all.concat(LVROWS[k])});
   if(window.VaultLive)VaultLive.push({updatedAt:new Date().toISOString(),src:"ESPN live",games:all});
   all.forEach(function(r){var id=(r.lg+"-"+r.a+"-"+r.h).toLowerCase().replace(/[^a-z0-9-]/g,""),e=PL&&PL.games&&PL.games[id];if(e){e.as=r.as;e.hs=r.hs;e.st=r.st||"FINAL"}});
-  var live=rows.some(function(r){return r.st});setTimeout(function(){lvPoll(L)},live?L[3]:Math.max(L[3],120e3))}).catch(function(err){console.error("LVERR",L[0],err&&err.stack||err);setTimeout(function(){lvPoll(L)},60e3)})}
+  var live=rows.some(function(r){return r.st});setTimeout(function(){lvPoll(L)},live?L[3]:Math.max(L[3],120e3))}).catch(function(){setTimeout(function(){lvPoll(L)},60e3)})}
 function lvStart(){if(LV.on||!window.fetch)return;LV.on=true;LVL.forEach(function(L,i){setTimeout(function(){lvPoll(L)},1500+i*700)})}
 /* the Booth's game: pull its play-by-play every ~12 seconds so the crew calls plays almost as they happen */
 function lvBoothTick(){setTimeout(lvBoothTick,12e3);if(!BP||BP.hidden||document.hidden||!bpSel||bpSel==="studio")return;var m=LV.ids[bpSel];if(!m)return;
