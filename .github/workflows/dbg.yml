@@ -6,8 +6,9 @@ jobs:
     steps:
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
-      - run: |
-          mkdir k && cd k && npm init -y >/dev/null && npm i kokoro-js@latest >/dev/null 2>&1; npm ls kokoro-js
+      - shell: bash {0}
+        run: |
+          mkdir k && cd k && npm init -y >/dev/null && npm i kokoro-js@latest 2>&1 | tail -5; npm ls kokoro-js || true
           cat > t.mjs <<'JS'
           import { KokoroTTS } from "kokoro-js";
           const t0=Date.now();
